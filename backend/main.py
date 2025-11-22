@@ -5,6 +5,7 @@ from typing import List
 
 import models
 import schemas
+import scraper
 from database import SessionLocal, engine
 
 models.Base.metadata.create_all(bind=engine)
@@ -84,3 +85,27 @@ def delete_source(source_id: int, db: Session = Depends(get_db)):
 @app.get("/")
 async def root():
     return {"message": "Agentic Newsroom Backend is running"}
+
+@app.post("/api/scan")
+def scan_sources(db: Session = Depends(get_db)):
+    count = scraper.scan_rss_sources(db)
+    return {"new_items": count}
+
+@app.get("/api/news/discovered", response_model=List[schemas.NewsItemResponse])
+def get_discovered_news(db: Session = Depends(get_db)):
+    return db.query(models.NewsItem).filter(models.NewsItem.status == "DISCOVERED").all()
+
+@app.put("/api/news/{news_id}/status", response_model=schemas.NewsItemResponse)
+def update_news_status(news_id: int, status_update: schemas.NewsItemStatusUpdate, db: Session = Depends(get_db)):
+    item = db.query(models.NewsItem).filter(models.NewsItem.id == news_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="News item not found")
+    
+    item.status = status_update.status
+    db.commit()
+    db.refresh(item)
+    return item
+
+@app.get("/api/news/approved", response_model=List[schemas.NewsItemResponse])
+def get_approved_news(db: Session = Depends(get_db)):
+    return db.query(models.NewsItem).filter(models.NewsItem.status == "APPROVED").all()

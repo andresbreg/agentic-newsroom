@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Settings, ChevronLeft, ChevronRight, Newspaper, Moon, Sun } from 'lucide-react';
+import { LayoutDashboard, Settings, ChevronLeft, ChevronRight, Newspaper, Moon, Sun, FileText } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { useTheme } from '../context/ThemeContext';
@@ -79,6 +79,7 @@ const Sidebar = ({ collapsed, setCollapsed }) => {
             {/* Navigation */}
             <nav className="flex-1 p-2 space-y-1 mt-4">
                 <NavItem to="/" icon={LayoutDashboard} label="Panel de Control" />
+                <NavItem to="/redaccion" icon={FileText} label="Redacción" />
                 <NavItem to="/settings" icon={Settings} label="Fuentes" />
             </nav>
 
@@ -102,6 +103,19 @@ const Sidebar = ({ collapsed, setCollapsed }) => {
                         {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
                     </span>
                 </button>
+
+                <div className={cn(
+                    "flex items-center gap-2 text-xs text-green-600 dark:text-green-400 px-2",
+                    collapsed && "justify-center"
+                )}>
+                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                    <span className={cn(
+                        "whitespace-nowrap overflow-hidden transition-all duration-300",
+                        collapsed ? "w-0 opacity-0 hidden" : "w-auto opacity-100"
+                    )}>
+                        Backend: Conectado
+                    </span>
+                </div>
             </div>
         </aside>
     );
