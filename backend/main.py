@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from typing import List
 
 import models
@@ -41,8 +41,9 @@ async def get_status():
 @app.get("/api/dashboard-stats")
 async def get_dashboard_stats(db: Session = Depends(get_db)):
     sources_count = db.query(models.Source).count()
+    active_news_count = db.query(models.NewsItem).filter(models.NewsItem.status == "DISCOVERED").count()
     return {
-        "active_news": 0,
+        "active_news": active_news_count,
         "sources_count": sources_count,
         "pending_alerts": 0
     }
@@ -88,12 +89,12 @@ async def root():
 
 @app.post("/api/scan")
 def scan_sources(db: Session = Depends(get_db)):
-    count = scraper.scan_rss_sources(db)
-    return {"new_items": count}
+    count, new_ids = scraper.scan_rss_sources(db)
+    return {"new_items": count, "new_item_ids": new_ids}
 
 @app.get("/api/news/discovered", response_model=List[schemas.NewsItemResponse])
 def get_discovered_news(db: Session = Depends(get_db)):
-    return db.query(models.NewsItem).filter(models.NewsItem.status == "DISCOVERED").all()
+    return db.query(models.NewsItem).options(joinedload(models.NewsItem.source)).filter(models.NewsItem.status == "DISCOVERED").order_by(models.NewsItem.id.desc()).all()
 
 @app.put("/api/news/{news_id}/status", response_model=schemas.NewsItemResponse)
 def update_news_status(news_id: int, status_update: schemas.NewsItemStatusUpdate, db: Session = Depends(get_db)):
@@ -108,4 +109,21 @@ def update_news_status(news_id: int, status_update: schemas.NewsItemStatusUpdate
 
 @app.get("/api/news/approved", response_model=List[schemas.NewsItemResponse])
 def get_approved_news(db: Session = Depends(get_db)):
-    return db.query(models.NewsItem).filter(models.NewsItem.status == "APPROVED").all()
+    return db.query(models.NewsItem).options(joinedload(models.NewsItem.source)).filter(models.NewsItem.status == "APPROVED").order_by(models.NewsItem.id.desc()).all()
+
+@app.get("/api/config", response_model=List[schemas.AgentConfigResponse])
+def get_config(db: Session = Depends(get_db)):
+    return db.query(models.AgentConfig).all()
+
+@app.post("/api/config", response_model=schemas.AgentConfigResponse)
+def update_config(config: schemas.AgentConfigCreate, db: Session = Depends(get_db)):
+    db_config = db.query(models.AgentConfig).filter(models.AgentConfig.key == config.key).first()
+    if db_config:
+        db_config.value = config.value
+    else:
+        db_config = models.AgentConfig(**config.dict())
+        db.add(db_config)
+    
+    db.commit()
+    db.refresh(db_config)
+    return db_config

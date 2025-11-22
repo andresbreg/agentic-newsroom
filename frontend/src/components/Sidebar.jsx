@@ -1,19 +1,32 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Settings, ChevronLeft, ChevronRight, Newspaper, Moon, Sun, FileText } from 'lucide-react';
-import { clsx } from 'clsx';
-import { twMerge } from 'tailwind-merge';
+import { LayoutDashboard, FileText, Settings, Sun, Moon, ChevronLeft, ChevronRight, Wifi, WifiOff, Newspaper, Bot } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
-
-export function cn(...inputs) {
-    return twMerge(clsx(inputs));
-}
+import { cn } from '../lib/utils';
 
 const Sidebar = ({ collapsed, setCollapsed }) => {
     const { theme, toggleTheme } = useTheme();
+    const [isBackendUp, setIsBackendUp] = useState(false);
+
     const toggleSidebar = () => {
         setCollapsed(!collapsed);
     };
+
+    useEffect(() => {
+        const checkStatus = async () => {
+            try {
+                const response = await fetch('http://localhost:8000/api/status');
+                setIsBackendUp(response.ok);
+            } catch (error) {
+                setIsBackendUp(false);
+            }
+        };
+
+        checkStatus(); // Initial check
+        const interval = setInterval(checkStatus, 5000);
+
+        return () => clearInterval(interval);
+    }, []);
 
     const NavItem = ({ to, icon: Icon, label }) => (
         <NavLink
@@ -63,7 +76,7 @@ const Sidebar = ({ collapsed, setCollapsed }) => {
                             collapsed ? "w-0 opacity-0" : "w-auto opacity-100"
                         )}
                     >
-                        Sala de Prensa
+                        Central de Noticias
                     </span>
                 </div>
             </div>
@@ -79,7 +92,8 @@ const Sidebar = ({ collapsed, setCollapsed }) => {
             {/* Navigation */}
             <nav className="flex-1 p-2 space-y-1 mt-4">
                 <NavItem to="/" icon={LayoutDashboard} label="Panel de Control" />
-                <NavItem to="/redaccion" icon={FileText} label="Redacción" />
+                <NavItem to="/redaccion" icon={FileText} label="Sala de Redacción" />
+                <NavItem to="/ai-config" icon={Bot} label="Agente IA" />
                 <NavItem to="/settings" icon={Settings} label="Fuentes" />
             </nav>
 
@@ -105,15 +119,16 @@ const Sidebar = ({ collapsed, setCollapsed }) => {
                 </button>
 
                 <div className={cn(
-                    "flex items-center gap-2 text-xs text-green-600 dark:text-green-400 px-2",
+                    "flex items-center gap-2 text-xs px-2 transition-colors duration-300",
+                    isBackendUp ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400",
                     collapsed && "justify-center"
                 )}>
-                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                    {isBackendUp ? <Wifi size={16} /> : <WifiOff size={16} />}
                     <span className={cn(
                         "whitespace-nowrap overflow-hidden transition-all duration-300",
                         collapsed ? "w-0 opacity-0 hidden" : "w-auto opacity-100"
                     )}>
-                        Backend: Conectado
+                        {isBackendUp ? "Backend: Conectado" : "Backend: Desconectado"}
                     </span>
                 </div>
             </div>

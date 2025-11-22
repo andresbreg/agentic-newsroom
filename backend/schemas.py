@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 from typing import Optional
+from datetime import datetime
 
 class SourceBase(BaseModel):
     name: str
@@ -29,9 +30,22 @@ class NewsItemCreate(NewsItemBase):
 class NewsItemResponse(NewsItemBase):
     id: int
     source_id: int
+    source: Optional[SourceResponse] = None
+    created_at: datetime
 
     class Config:
         from_attributes = True
 
 class NewsItemStatusUpdate(BaseModel):
     status: str
+
+class AgentConfigBase(BaseModel):
+    key: str
+    value: str
+
+class AgentConfigCreate(AgentConfigBase):
+    pass
+
+class AgentConfigResponse(AgentConfigBase):
+    class Config:
+        from_attributes = True

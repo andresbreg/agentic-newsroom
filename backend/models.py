@@ -1,4 +1,6 @@
-from sqlalchemy import Boolean, Column, Integer, String
+from sqlalchemy import Boolean, Column, Integer, String, DateTime, ForeignKey
+from sqlalchemy.orm import relationship
+from datetime import datetime
 from database import Base
 
 class Source(Base):
@@ -15,8 +17,17 @@ class NewsItem(Base):
     __tablename__ = "news_items"
 
     id = Column(Integer, primary_key=True, index=True)
-    source_id = Column(Integer, index=True)
+    source_id = Column(Integer, ForeignKey("sources.id"), index=True)
     title = Column(String, index=True)
     url = Column(String, unique=True, index=True)
     published_date = Column(String)
+    created_at = Column(DateTime, default=datetime.utcnow)
     status = Column(String, default="DISCOVERED")  # DISCOVERED, APPROVED, REJECTED
+    
+    source = relationship("Source")
+
+class AgentConfig(Base):
+    __tablename__ = "agent_config"
+
+    key = Column(String, primary_key=True, index=True)
+    value = Column(String)

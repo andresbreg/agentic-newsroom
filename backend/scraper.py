@@ -6,6 +6,7 @@ from datetime import datetime
 def scan_rss_sources(db: Session):
     sources = db.query(Source).filter(Source.type == 'RSS', Source.active == True).all()
     new_items_count = 0
+    new_item_ids = []
     
     for source in sources:
         try:
@@ -23,9 +24,11 @@ def scan_rss_sources(db: Session):
                         status="DISCOVERED"
                     )
                     db.add(new_item)
+                    db.flush() # Get ID
+                    new_item_ids.append(new_item.id)
                     new_items_count += 1
         except Exception as e:
             print(f"Error scanning source {source.url}: {e}")
             
     db.commit()
-    return new_items_count
+    return new_items_count, new_item_ids

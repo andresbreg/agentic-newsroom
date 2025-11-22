@@ -36,7 +36,7 @@ const Redaccion = () => {
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
                     <FileText className="text-blue-600" />
-                    Redacción
+                    Sala de Redacción
                 </h1>
             </div>
 
@@ -64,7 +64,7 @@ const Redaccion = () => {
                                         </td>
                                         <td className="px-4 py-3">
                                             <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
-                                                RSS
+                                                {item.source ? item.source.name : 'Fuente'}
                                             </span>
                                         </td>
                                         <td className="px-4 py-3">
