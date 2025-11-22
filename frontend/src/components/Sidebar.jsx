@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, FileText, Settings, Sun, Moon, ChevronLeft, ChevronRight, Wifi, WifiOff, Newspaper, Bot } from 'lucide-react';
+import { LayoutDashboard, FileText, Settings, Sun, Moon, ChevronLeft, ChevronRight, Wifi, WifiOff, Newspaper, Bot, Trash2 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { cn } from '../lib/utils';
 
@@ -95,6 +95,7 @@ const Sidebar = ({ collapsed, setCollapsed }) => {
                 <NavItem to="/redaccion" icon={FileText} label="Sala de Redacción" />
                 <NavItem to="/ai-config" icon={Bot} label="Agente IA" />
                 <NavItem to="/settings" icon={Settings} label="Fuentes" />
+                <NavItem to="/papelera" icon={Trash2} label="Papelera" />
             </nav>
 
             {/* Footer */}

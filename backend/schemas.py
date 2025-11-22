@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 
 class SourceBase(BaseModel):
@@ -49,3 +49,6 @@ class AgentConfigCreate(AgentConfigBase):
 class AgentConfigResponse(AgentConfigBase):
     class Config:
         from_attributes = True
+
+class BatchIdRequest(BaseModel):
+    ids: List[int]

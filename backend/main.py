@@ -111,6 +111,48 @@ def update_news_status(news_id: int, status_update: schemas.NewsItemStatusUpdate
 def get_approved_news(db: Session = Depends(get_db)):
     return db.query(models.NewsItem).options(joinedload(models.NewsItem.source)).filter(models.NewsItem.status == "APPROVED").order_by(models.NewsItem.id.desc()).all()
 
+@app.get("/api/news/rejected", response_model=List[schemas.NewsItemResponse])
+def get_rejected_news(db: Session = Depends(get_db)):
+    return db.query(models.NewsItem).options(joinedload(models.NewsItem.source)).filter(models.NewsItem.status == "REJECTED").order_by(models.NewsItem.id.desc()).all()
+
+@app.delete("/api/news/{news_id}")
+def delete_news_item(news_id: int, db: Session = Depends(get_db)):
+    item = db.query(models.NewsItem).filter(models.NewsItem.id == news_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="News item not found")
+    db.delete(item)
+    db.commit()
+    return {"ok": True}
+
+@app.delete("/api/news/rejected/all")
+def empty_trash(db: Session = Depends(get_db)):
+    db.query(models.NewsItem).filter(models.NewsItem.status == "REJECTED").delete(synchronize_session=False)
+    db.commit()
+    return {"ok": True}
+
+@app.put("/api/news/{news_id}/restore", response_model=schemas.NewsItemResponse)
+def restore_news_item(news_id: int, db: Session = Depends(get_db)):
+    item = db.query(models.NewsItem).filter(models.NewsItem.id == news_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="News item not found")
+    
+    item.status = "DISCOVERED"
+    db.commit()
+    db.refresh(item)
+    return item
+
+@app.post("/api/news/batch/delete")
+def batch_delete_news(request: schemas.BatchIdRequest, db: Session = Depends(get_db)):
+    db.query(models.NewsItem).filter(models.NewsItem.id.in_(request.ids)).delete(synchronize_session=False)
+    db.commit()
+    return {"ok": True, "count": len(request.ids)}
+
+@app.post("/api/news/batch/restore")
+def batch_restore_news(request: schemas.BatchIdRequest, db: Session = Depends(get_db)):
+    db.query(models.NewsItem).filter(models.NewsItem.id.in_(request.ids)).update({models.NewsItem.status: "DISCOVERED"}, synchronize_session=False)
+    db.commit()
+    return {"ok": True, "count": len(request.ids)}
+
 @app.get("/api/config", response_model=List[schemas.AgentConfigResponse])
 def get_config(db: Session = Depends(get_db)):
     return db.query(models.AgentConfig).all()

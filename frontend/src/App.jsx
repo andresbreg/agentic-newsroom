@@ -5,6 +5,7 @@ import Dashboard from './pages/Dashboard';
 import Redaccion from './pages/Redaccion';
 import Settings from './pages/Settings';
 import AIConfig from './pages/AIConfig';
+import Papelera from './pages/Papelera';
 import { ToastProvider } from './context/ToastContext';
 import { ThemeProvider } from './context/ThemeContext';
 
@@ -19,6 +20,7 @@ function App() {
                             <Route path="redaccion" element={<Redaccion />} />
                             <Route path="settings" element={<Settings />} />
                             <Route path="ai-config" element={<AIConfig />} />
+                            <Route path="papelera" element={<Papelera />} />
                             <Route path="*" element={<Navigate to="/" replace />} />
                         </Route>
                     </Routes>
