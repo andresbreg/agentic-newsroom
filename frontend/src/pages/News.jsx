@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useToast } from '../context/ToastContext';
-import { Filter, CheckSquare, Square, Trash2, CheckCircle, RefreshCw, LayoutDashboard, ExternalLink } from 'lucide-react';
+import { Filter, CheckSquare, Square, Trash2, CheckCircle, RefreshCw, LayoutDashboard, ExternalLink, Sparkles } from 'lucide-react';
 import { useHighlight } from '../context/HighlightContext';
 
 const News = () => {
@@ -13,6 +13,7 @@ const News = () => {
     const [newsItems, setNewsItems] = useState([]);
     const [loading, setLoading] = useState(true);
     const [scanning, setScanning] = useState(false);
+    const [analyzing, setAnalyzing] = useState(false);
 
     // New State
     const [selectedItems, setSelectedItems] = useState(new Set());
@@ -74,6 +75,24 @@ const News = () => {
             addToast('Error de conexión.', 'error');
         } finally {
             setScanning(false);
+        }
+    };
+
+    const handleAnalyze = async () => {
+        setAnalyzing(true);
+        try {
+            const response = await fetch('http://localhost:8000/api/analyze', { method: 'POST' });
+            if (response.ok) {
+                const data = await response.json();
+                addToast(`Análisis completado. ${data.analyzed_count} noticias analizadas.`, 'success');
+                await fetchNews();
+            } else {
+                addToast('Error al analizar noticias.', 'error');
+            }
+        } catch (error) {
+            addToast('Error de conexión.', 'error');
+        } finally {
+            setAnalyzing(false);
         }
     };
 
@@ -168,14 +187,24 @@ const News = () => {
                     <LayoutDashboard className="w-6 h-6 text-slate-900 dark:text-white" />
                     <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Panel de Noticias</h1>
                 </div>
-                <button
-                    onClick={handleScan}
-                    disabled={scanning}
-                    className={`px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-2 ${scanning ? 'opacity-75 cursor-not-allowed' : ''}`}
-                >
-                    <RefreshCw size={20} className={scanning ? 'animate-spin' : ''} />
-                    {scanning ? 'Sincronizando...' : 'Sincronizar RSS'}
-                </button>
+                <div className="flex gap-2">
+                    <button
+                        onClick={handleAnalyze}
+                        disabled={analyzing}
+                        className={`px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2 ${analyzing ? 'opacity-75 cursor-not-allowed' : ''}`}
+                    >
+                        <Sparkles size={20} className={analyzing ? 'animate-pulse' : ''} />
+                        {analyzing ? 'Analizando...' : 'Analizar IA'}
+                    </button>
+                    <button
+                        onClick={handleScan}
+                        disabled={scanning}
+                        className={`px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-2 ${scanning ? 'opacity-75 cursor-not-allowed' : ''}`}
+                    >
+                        <RefreshCw size={20} className={scanning ? 'animate-spin' : ''} />
+                        {scanning ? 'Sincronizar RSS' : 'Sincronizar RSS'}
+                    </button>
+                </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
@@ -258,6 +287,7 @@ const News = () => {
                                     </th>
                                     <th className="px-4 py-3 font-medium w-32">Fecha</th>
                                     <th className="px-4 py-3 font-medium w-24">Fuente</th>
+                                    <th className="px-4 py-3 font-medium w-32">Relevancia</th>
                                     <th className="px-4 py-3 font-medium">Título</th>
                                     <th className="px-4 py-3 font-medium w-32 text-right">Acciones</th>
                                 </tr>
@@ -292,6 +322,22 @@ const News = () => {
                                             <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
                                                 {item.source ? item.source.name : 'Fuente'}
                                             </span>
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            {item.ai_score !== null ? (
+                                                <span
+                                                    title={item.ai_explanation}
+                                                    className={`cursor-help inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${item.ai_score >= 70 ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' :
+                                                            item.ai_score >= 30 ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300' :
+                                                                'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                                                        }`}
+                                                >
+                                                    {item.ai_category || (item.ai_score >= 70 ? 'Alta Prioridad' : item.ai_score >= 30 ? 'Interés General' : 'Irrelevante')}
+                                                    <span className="ml-1 opacity-75">({item.ai_score})</span>
+                                                </span>
+                                            ) : (
+                                                <span className="text-gray-400 text-xs">-</span>
+                                            )}
                                         </td>
                                         <td className="px-4 py-3">
                                             <div className="flex items-center gap-2">

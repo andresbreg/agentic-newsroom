@@ -32,6 +32,9 @@ class NewsItemResponse(NewsItemBase):
     source_id: int
     source: Optional[SourceResponse] = None
     created_at: datetime
+    ai_score: Optional[int] = None
+    ai_explanation: Optional[str] = None
+    ai_category: Optional[str] = None
 
     class Config:
         from_attributes = True

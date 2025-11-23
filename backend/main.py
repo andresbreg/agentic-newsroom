@@ -7,8 +7,32 @@ import models
 import schemas
 import scraper
 from database import SessionLocal, engine
+from ai_agent import AIAgent
+from sqlalchemy import text
 
 models.Base.metadata.create_all(bind=engine)
+
+# Simple migration to ensure new columns exist (for prototype robustness)
+def run_migrations():
+    db = SessionLocal()
+    try:
+        # Check if column exists by trying to select it. If error, add it.
+        # SQLite doesn't support IF NOT EXISTS in ALTER TABLE ADD COLUMN directly in all versions/drivers nicely,
+        # so we try-except.
+        try:
+            db.execute(text("SELECT ai_score FROM news_items LIMIT 1"))
+        except Exception:
+            db.rollback()
+            db.execute(text("ALTER TABLE news_items ADD COLUMN ai_score INTEGER"))
+            db.execute(text("ALTER TABLE news_items ADD COLUMN ai_explanation VARCHAR"))
+            db.execute(text("ALTER TABLE news_items ADD COLUMN ai_category VARCHAR"))
+            db.commit()
+    except Exception as e:
+        print(f"Migration warning: {e}")
+    finally:
+        db.close()
+
+run_migrations()
 
 app = FastAPI()
 
@@ -224,11 +248,19 @@ def update_topic(topic_id: int, topic: schemas.InterestTopicCreate, db: Session 
     db.refresh(db_topic)
     return db_topic
 
-@app.delete("/api/topics/{topic_id}")
-def delete_topic(topic_id: int, db: Session = Depends(get_db)):
-    db_topic = db.query(models.InterestTopic).filter(models.InterestTopic.id == topic_id).first()
-    if db_topic is None:
-        raise HTTPException(status_code=404, detail="Topic not found")
     db.delete(db_topic)
     db.commit()
     return {"ok": True}
+
+@app.post("/api/analyze")
+def analyze_news(db: Session = Depends(get_db)):
+    # Fetch pending items (DISCOVERED and no score yet)
+    pending_items = db.query(models.NewsItem).filter(
+        models.NewsItem.status == 'DISCOVERED',
+        models.NewsItem.ai_score == None
+    ).limit(5).all() # Batch size 20 to respect rate limits
+    
+    agent = AIAgent(db)
+    count = agent.analyze_batch(pending_items)
+    
+    return {"analyzed_count": count}

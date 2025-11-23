@@ -23,6 +23,9 @@ class NewsItem(Base):
     published_date = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow)
     status = Column(String, default="DISCOVERED")  # DISCOVERED, APPROVED, REJECTED
+    ai_score = Column(Integer, nullable=True)
+    ai_explanation = Column(String, nullable=True)
+    ai_category = Column(String, nullable=True)
     
     source = relationship("Source")
 
