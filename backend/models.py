@@ -31,3 +31,14 @@ class AgentConfig(Base):
 
     key = Column(String, primary_key=True, index=True)
     value = Column(String)
+
+class InterestTopic(Base):
+    __tablename__ = "interest_topics"
+
+    id = Column(Integer, primary_key=True, index=True)
+    subject = Column(String, index=True)  # Asunto
+    scope = Column(String)  # Alcance
+    keywords = Column(String)  # Comma-separated
+    exclusions = Column(String)  # Comma-separated
+    relevance_level = Column(String)  # High, Medium, Low
+    context_tags = Column(String)  # Comma-separated tags

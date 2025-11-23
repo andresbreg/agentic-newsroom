@@ -3,7 +3,7 @@ import axios from 'axios';
 import { Trash2, Plus, Globe, Rss, Pencil, ChevronDown, ChevronUp } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
 
-const Settings = () => {
+const Sources = () => {
     const { addToast } = useToast();
     const [sources, setSources] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -182,7 +182,7 @@ const Settings = () => {
             {/* Sources List */}
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden transition-colors duration-300">
                 <div className="p-6 border-b border-gray-100 dark:border-gray-700">
-                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Fuentes Configuradas</h2>
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Lista de Fuentes</h2>
                 </div>
                 <div className="overflow-x-auto">
                     <table className="w-full text-left">
@@ -265,4 +265,4 @@ const Settings = () => {
     );
 };
 
-export default Settings;
+export default Sources;

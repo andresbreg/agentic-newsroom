@@ -193,4 +193,42 @@ def update_config(config: schemas.AIConfigSettings, db: Session = Depends(get_db
     db.commit()
     
     # Return updated config (masked)
+    # Return updated config (masked)
     return get_config(db)
+
+# Interest Topic Endpoints
+
+@app.get("/api/topics", response_model=List[schemas.InterestTopicResponse])
+def read_topics(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    topics = db.query(models.InterestTopic).offset(skip).limit(limit).all()
+    return topics
+
+@app.post("/api/topics", response_model=schemas.InterestTopicResponse)
+def create_topic(topic: schemas.InterestTopicCreate, db: Session = Depends(get_db)):
+    db_topic = models.InterestTopic(**topic.dict())
+    db.add(db_topic)
+    db.commit()
+    db.refresh(db_topic)
+    return db_topic
+
+@app.put("/api/topics/{topic_id}", response_model=schemas.InterestTopicResponse)
+def update_topic(topic_id: int, topic: schemas.InterestTopicCreate, db: Session = Depends(get_db)):
+    db_topic = db.query(models.InterestTopic).filter(models.InterestTopic.id == topic_id).first()
+    if db_topic is None:
+        raise HTTPException(status_code=404, detail="Topic not found")
+    
+    for key, value in topic.dict().items():
+        setattr(db_topic, key, value)
+    
+    db.commit()
+    db.refresh(db_topic)
+    return db_topic
+
+@app.delete("/api/topics/{topic_id}")
+def delete_topic(topic_id: int, db: Session = Depends(get_db)):
+    db_topic = db.query(models.InterestTopic).filter(models.InterestTopic.id == topic_id).first()
+    if db_topic is None:
+        raise HTTPException(status_code=404, detail="Topic not found")
+    db.delete(db_topic)
+    db.commit()
+    return {"ok": True}

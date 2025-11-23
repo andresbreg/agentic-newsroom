@@ -1,11 +1,12 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
-import Dashboard from './pages/Dashboard';
+import News from './pages/News';
 import Newsroom from './pages/Newsroom';
-import Settings from './pages/Settings';
+import Sources from './pages/Sources';
 import AIConfig from './pages/AIConfig';
 import Trash from './pages/Trash';
+import Topics from './pages/Topics';
 import { ToastProvider } from './context/ToastContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { HighlightProvider } from './context/HighlightContext';
@@ -18,9 +19,10 @@ function App() {
                     <Router>
                         <Routes>
                             <Route path="/" element={<Layout />}>
-                                <Route index element={<Dashboard />} />
+                                <Route index element={<News />} />
                                 <Route path="newsroom" element={<Newsroom />} />
-                                <Route path="settings" element={<Settings />} />
+                                <Route path="topics" element={<Topics />} />
+                                <Route path="sources" element={<Sources />} />
                                 <Route path="ai-config" element={<AIConfig />} />
                                 <Route path="trash" element={<Trash />} />
                                 <Route path="*" element={<Navigate to="/" replace />} />

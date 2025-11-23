@@ -3,7 +3,7 @@ import { useToast } from '../context/ToastContext';
 import { Filter, CheckSquare, Square, Trash2, CheckCircle, RefreshCw, LayoutDashboard, ExternalLink } from 'lucide-react';
 import { useHighlight } from '../context/HighlightContext';
 
-const Dashboard = () => {
+const News = () => {
     const { addToast } = useToast();
     const { highlights, addHighlight } = useHighlight();
     const [stats, setStats] = useState({
@@ -166,7 +166,7 @@ const Dashboard = () => {
             <div className="flex justify-between items-center mb-6">
                 <div className="flex items-center gap-2">
                     <LayoutDashboard className="w-6 h-6 text-slate-900 dark:text-white" />
-                    <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Panel de Control</h1>
+                    <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Panel de Noticias</h1>
                 </div>
                 <button
                     onClick={handleScan}
@@ -178,43 +178,40 @@ const Dashboard = () => {
                 </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 flex items-center justify-between transition-colors duration-300">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div className="bg-white dark:bg-gray-800 px-4 h-12 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 flex items-center justify-between transition-colors duration-300">
                     <h3 className="text-gray-500 dark:text-gray-400 text-sm font-medium">Noticias</h3>
-                    <p className="text-xl font-bold text-gray-900 dark:text-white">
+                    <p className="text-lg font-bold text-gray-900 dark:text-white">
                         {loading ? '...' : stats.active_news}
                     </p>
                 </div>
-                <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 flex items-center justify-between transition-colors duration-300">
+                <div className="bg-white dark:bg-gray-800 px-4 h-12 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 flex items-center justify-between transition-colors duration-300">
                     <h3 className="text-gray-500 dark:text-gray-400 text-sm font-medium">Fuentes</h3>
-                    <p className="text-xl font-bold text-gray-900 dark:text-white">
+                    <p className="text-lg font-bold text-gray-900 dark:text-white">
                         {loading ? '...' : stats.sources_count}
                     </p>
                 </div>
-
-            </div>
-
-            <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-4">
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Lista de Noticias</h2>
-
-                <div className="flex items-center gap-2 w-full sm:w-auto">
-                    {/* Source Filter */}
-                    <div className="relative">
+                <div className="flex items-center justify-end px-4 transition-colors duration-300">
+                    <div className="h-12 relative ml-auto bg-white dark:bg-gray-800 rounded-md shadow-sm border dark:border-gray-700 flex items-center">
                         <select
                             value={filterSource}
                             onChange={(e) => setFilterSource(e.target.value)}
-                            className="appearance-none bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 py-2 pl-3 pr-8 rounded-lg leading-tight focus:outline-none focus:border-indigo-500"
+                            className="appearance-none dark:bg-gray-800 dark:text-gray-300 py-2 pl-3 pr-8 rounded-lg leading-tight focus:outline-none focus:border-indigo-500"
                         >
-                            <option value="">Todas las fuentes</option>
+                            <option value="">Todas</option>
                             {sources.map(source => (
                                 <option key={source.id} value={source.id}>{source.name}</option>
                             ))}
                         </select>
-                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700 dark:text-gray-400">
-                            <Filter size={16} />
+                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500 dark:text-gray-400">
+                            <Filter size={14} />
                         </div>
                     </div>
+                </div>
+            </div>
 
+            <div className="flex flex-col sm:flex-row justify-end items-center mb-4 gap-4">
+                <div className="flex items-center gap-2 w-full sm:w-auto">
                     {/* Bulk Actions */}
                     {selectedItems.size > 0 && (
                         <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-4 duration-200">
@@ -341,4 +338,4 @@ const Dashboard = () => {
     );
 };
 
-export default Dashboard;
+export default News;

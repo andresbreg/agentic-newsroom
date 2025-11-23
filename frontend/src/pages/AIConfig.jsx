@@ -33,7 +33,6 @@ const AIConfig = () => {
                 system_prompt: aiConfig.system_instructions
             });
             addToast('Configuración IA guardada', 'success');
-            // Refresh to get masked key if needed, though we might just keep what user typed until reload
             fetchAiConfig();
         } catch (error) {
             console.error('Error saving AI config:', error);
@@ -51,7 +50,6 @@ const AIConfig = () => {
                 <Bot className="w-6 h-6 text-slate-900 dark:text-white" />
                 <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Agente IA</h1>
             </div>
-
 
             <div className="max-w-3xl bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden transition-colors duration-300">
                 <div className="p-6 space-y-6">
@@ -94,7 +92,7 @@ const AIConfig = () => {
                     </div>
                 </div>
             </div>
-        </div >
+        </div>
     );
 };
 

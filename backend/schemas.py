@@ -56,3 +56,20 @@ class BatchIdRequest(BaseModel):
 class AIConfigSettings(BaseModel):
     api_key: Optional[str] = None
     system_prompt: Optional[str] = None
+
+class InterestTopicBase(BaseModel):
+    subject: str
+    scope: str
+    keywords: str
+    exclusions: Optional[str] = None
+    relevance_level: str
+    context_tags: Optional[str] = None
+
+class InterestTopicCreate(InterestTopicBase):
+    pass
+
+class InterestTopicResponse(InterestTopicBase):
+    id: int
+
+    class Config:
+        from_attributes = True
