@@ -153,19 +153,45 @@ def batch_restore_news(request: schemas.BatchIdRequest, db: Session = Depends(ge
     db.commit()
     return {"ok": True, "count": len(request.ids)}
 
-@app.get("/api/config", response_model=List[schemas.AgentConfigResponse])
+@app.get("/api/config", response_model=schemas.AIConfigSettings)
 def get_config(db: Session = Depends(get_db)):
-    return db.query(models.AgentConfig).all()
-
-@app.post("/api/config", response_model=schemas.AgentConfigResponse)
-def update_config(config: schemas.AgentConfigCreate, db: Session = Depends(get_db)):
-    db_config = db.query(models.AgentConfig).filter(models.AgentConfig.key == config.key).first()
-    if db_config:
-        db_config.value = config.value
+    api_key_config = db.query(models.AgentConfig).filter(models.AgentConfig.key == "gemini_api_key").first()
+    system_prompt_config = db.query(models.AgentConfig).filter(models.AgentConfig.key == "system_instructions").first()
+    
+    api_key = api_key_config.value if api_key_config else None
+    system_prompt = system_prompt_config.value if system_prompt_config else None
+    
+    # Mask API Key
+    if api_key and len(api_key) > 4:
+        masked_key = api_key[:4] + "*" * (len(api_key) - 4)
     else:
-        db_config = models.AgentConfig(**config.dict())
-        db.add(db_config)
+        masked_key = api_key
+
+    return schemas.AIConfigSettings(api_key=masked_key, system_prompt=system_prompt)
+
+@app.post("/api/config", response_model=schemas.AIConfigSettings)
+def update_config(config: schemas.AIConfigSettings, db: Session = Depends(get_db)):
+    # Update API Key if provided
+    if config.api_key:
+        # Check if it's masked (don't update if it is)
+        if not config.api_key.endswith("****"):
+            db_key = db.query(models.AgentConfig).filter(models.AgentConfig.key == "gemini_api_key").first()
+            if db_key:
+                db_key.value = config.api_key
+            else:
+                db_key = models.AgentConfig(key="gemini_api_key", value=config.api_key)
+                db.add(db_key)
+
+    # Update System Prompt if provided
+    if config.system_prompt is not None:
+        db_prompt = db.query(models.AgentConfig).filter(models.AgentConfig.key == "system_instructions").first()
+        if db_prompt:
+            db_prompt.value = config.system_prompt
+        else:
+            db_prompt = models.AgentConfig(key="system_instructions", value=config.system_prompt)
+            db.add(db_prompt)
     
     db.commit()
-    db.refresh(db_config)
-    return db_config
+    
+    # Return updated config (masked)
+    return get_config(db)

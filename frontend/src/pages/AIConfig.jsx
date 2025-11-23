@@ -14,11 +14,10 @@ const AIConfig = () => {
     const fetchAiConfig = async () => {
         try {
             const response = await axios.get('http://localhost:8000/api/config');
-            const configMap = {};
-            response.data.forEach(item => {
-                configMap[item.key] = item.value;
+            setAiConfig({
+                gemini_api_key: response.data.api_key || '',
+                system_instructions: response.data.system_prompt || ''
             });
-            setAiConfig(prev => ({ ...prev, ...configMap }));
         } catch (error) {
             console.error('Error fetching AI config:', error);
             addToast('Error al cargar configuración', 'error');
@@ -29,9 +28,13 @@ const AIConfig = () => {
 
     const saveAiConfig = async () => {
         try {
-            await axios.post('http://localhost:8000/api/config', { key: 'gemini_api_key', value: aiConfig.gemini_api_key });
-            await axios.post('http://localhost:8000/api/config', { key: 'system_instructions', value: aiConfig.system_instructions });
+            await axios.post('http://localhost:8000/api/config', {
+                api_key: aiConfig.gemini_api_key,
+                system_prompt: aiConfig.system_instructions
+            });
             addToast('Configuración IA guardada', 'success');
+            // Refresh to get masked key if needed, though we might just keep what user typed until reload
+            fetchAiConfig();
         } catch (error) {
             console.error('Error saving AI config:', error);
             addToast('Error al guardar configuración IA', 'error');

@@ -52,3 +52,7 @@ class AgentConfigResponse(AgentConfigBase):
 
 class BatchIdRequest(BaseModel):
     ids: List[int]
+
+class AIConfigSettings(BaseModel):
+    api_key: Optional[str] = None
+    system_prompt: Optional[str] = None
