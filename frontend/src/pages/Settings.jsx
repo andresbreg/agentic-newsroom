@@ -82,7 +82,10 @@ const Settings = () => {
 
     return (
         <div className="p-8 bg-gray-50 dark:bg-gray-900 min-h-full transition-colors duration-300">
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Gestión de Fuentes</h1>
+            <div className="flex items-center gap-2 mb-6">
+                <Rss className="w-6 h-6 text-slate-900 dark:text-white" />
+                <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Gestión de Fuentes</h1>
+            </div>
 
             {/* Add Source Form */}
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 mb-8 transition-colors duration-300 overflow-hidden">
@@ -92,7 +95,7 @@ const Settings = () => {
                 >
                     <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                         {editingId ? <Pencil size={20} /> : <Plus size={20} />}
-                        {editingId ? 'Editar Fuente' : 'Gestionar Fuente'}
+                        {editingId ? 'Editar Fuente' : 'Agregar Fuente'}
                     </h2>
                     {isFormOpen ? <ChevronUp size={20} className="text-gray-500" /> : <ChevronDown size={20} className="text-gray-500" />}
                 </button>
@@ -165,7 +168,7 @@ const Settings = () => {
                                 )}
                                 <button
                                     type="submit"
-                                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                                    className="h-10 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-2"
                                 >
                                     {editingId ? <Pencil size={18} /> : <Plus size={18} />}
                                     {editingId ? 'Actualizar Fuente' : 'Agregar Fuente'}

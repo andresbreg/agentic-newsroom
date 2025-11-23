@@ -47,15 +47,11 @@ const AIConfig = () => {
 
     return (
         <div className="p-8 bg-gray-50 dark:bg-gray-900 min-h-full transition-colors duration-300">
-            <div className="flex items-center gap-3 mb-8">
-                <div className="p-3 bg-indigo-100 dark:bg-indigo-900/30 rounded-xl">
-                    <Bot size={32} className="text-indigo-600 dark:text-indigo-400" />
-                </div>
-                <div>
-                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Agente IA</h1>
-                    <p className="text-gray-500 dark:text-gray-400">Configura el comportamiento y credenciales del agente.</p>
-                </div>
+            <div className="flex items-center gap-2 mb-6">
+                <Bot className="w-6 h-6 text-slate-900 dark:text-white" />
+                <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Agente IA</h1>
             </div>
+
 
             <div className="max-w-3xl bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden transition-colors duration-300">
                 <div className="p-6 space-y-6">
@@ -69,7 +65,7 @@ const AIConfig = () => {
                             placeholder="Enter your Gemini API Key"
                         />
                         <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                            Tu API Key se almacena localmente en la base de datos y se usa solo para comunicarte con Gemini.
+                            Tu API Key se almacena localmente y se usa sólo para comunicarse con el agente.
                         </p>
                     </div>
 
@@ -90,7 +86,7 @@ const AIConfig = () => {
                     <div className="pt-4 flex justify-end border-t border-gray-100 dark:border-gray-700">
                         <button
                             onClick={saveAiConfig}
-                            className="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-2 font-medium shadow-sm hover:shadow-md"
+                            className="h-10 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-2 font-medium shadow-sm hover:shadow-md"
                         >
                             <Save size={20} />
                             Guardar Cambios
@@ -98,7 +94,7 @@ const AIConfig = () => {
                     </div>
                 </div>
             </div>
-        </div>
+        </div >
     );
 };
 

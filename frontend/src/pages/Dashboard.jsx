@@ -1,13 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { useToast } from '../context/ToastContext';
-import { Filter, CheckSquare, Square, Trash2, CheckCircle, RefreshCw } from 'lucide-react';
+import { Filter, CheckSquare, Square, Trash2, CheckCircle, RefreshCw, LayoutDashboard, ExternalLink } from 'lucide-react';
+import { useHighlight } from '../context/HighlightContext';
 
 const Dashboard = () => {
     const { addToast } = useToast();
+    const { highlights, addHighlight } = useHighlight();
     const [stats, setStats] = useState({
         active_news: 0,
-        sources_count: 0,
-        pending_alerts: 0
+        sources_count: 0
     });
     const [newsItems, setNewsItems] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -96,6 +97,9 @@ const Dashboard = () => {
                 throw new Error('Failed to update status');
             }
             addToast(status === 'APPROVED' ? 'Noticia aprobada' : 'Noticia descartada', 'success');
+            if (status === 'REJECTED') {
+                addHighlight('trash', [id]);
+            }
             fetchStats(); // Update stats to reflect changes
         } catch (error) {
             console.error('Error updating status:', error);
@@ -160,7 +164,10 @@ const Dashboard = () => {
     return (
         <div className="p-8 bg-gray-50 dark:bg-gray-900 min-h-full transition-colors duration-300">
             <div className="flex justify-between items-center mb-6">
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Panel de Control</h1>
+                <div className="flex items-center gap-2">
+                    <LayoutDashboard className="w-6 h-6 text-slate-900 dark:text-white" />
+                    <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Panel de Control</h1>
+                </div>
                 <button
                     onClick={handleScan}
                     disabled={scanning}
@@ -171,9 +178,9 @@ const Dashboard = () => {
                 </button>
             </div>
 
-            <div className="grid grid-cols-3 gap-4 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                 <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 flex items-center justify-between transition-colors duration-300">
-                    <h3 className="text-gray-500 dark:text-gray-400 text-sm font-medium">Noticias Activas</h3>
+                    <h3 className="text-gray-500 dark:text-gray-400 text-sm font-medium">Noticias</h3>
                     <p className="text-xl font-bold text-gray-900 dark:text-white">
                         {loading ? '...' : stats.active_news}
                     </p>
@@ -184,16 +191,11 @@ const Dashboard = () => {
                         {loading ? '...' : stats.sources_count}
                     </p>
                 </div>
-                <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 flex items-center justify-between transition-colors duration-300">
-                    <h3 className="text-gray-500 dark:text-gray-400 text-sm font-medium">Alertas</h3>
-                    <p className="text-xl font-bold text-gray-900 dark:text-white">
-                        {loading ? '...' : stats.pending_alerts}
-                    </p>
-                </div>
+
             </div>
 
             <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-4">
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Noticias Descubiertas</h2>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Lista de Noticias</h2>
 
                 <div className="flex items-center gap-2 w-full sm:w-auto">
                     {/* Source Filter */}
@@ -271,6 +273,7 @@ const Dashboard = () => {
                                             hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors duration-500
                                             ${selectedItems.has(item.id) ? 'bg-indigo-50 dark:bg-indigo-900/20' : ''}
                                             ${newlyFoundIds.includes(item.id) && !selectedItems.has(item.id) ? 'bg-blue-50 dark:bg-blue-900/20' : ''}
+                                            ${highlights.dashboard.has(item.id) ? 'bg-blue-50 dark:bg-blue-900/20' : ''}
                                         `}
                                     >
                                         <td className="px-4 py-3">
@@ -295,13 +298,22 @@ const Dashboard = () => {
                                         </td>
                                         <td className="px-4 py-3">
                                             <div className="flex items-center gap-2">
-                                                <a href={item.url} target="_blank" rel="noopener noreferrer" className="font-medium text-gray-900 dark:text-white hover:text-indigo-600 dark:hover:text-indigo-400 line-clamp-1">
+                                                <span className="font-medium text-gray-900 dark:text-white line-clamp-1">
                                                     {item.title}
-                                                </a>
+                                                </span>
                                             </div>
                                         </td>
                                         <td className="px-4 py-3 text-right">
                                             <div className="flex justify-end gap-2">
+                                                <a
+                                                    href={item.url}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-md transition-colors"
+                                                    title="Ver original"
+                                                >
+                                                    <ExternalLink size={20} />
+                                                </a>
                                                 <button
                                                     onClick={() => updateStatus(item.id, 'APPROVED')}
                                                     className="p-1.5 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-md transition-colors"
@@ -321,11 +333,11 @@ const Dashboard = () => {
                                     </tr>
                                 ))}
                             </tbody>
-                        </table>
-                    </div>
-                </div>
+                        </table >
+                    </div >
+                </div >
             )}
-        </div>
+        </div >
     );
 };
 

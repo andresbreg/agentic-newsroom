@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useToast } from '../context/ToastContext';
 import { Trash2, RotateCcw, CheckSquare, Square, CheckCircle } from 'lucide-react';
+import { useHighlight } from '../context/HighlightContext';
 
-const Papelera = () => {
+const Trash = () => {
     const { addToast } = useToast();
+    const { highlights, addHighlight } = useHighlight();
     const [newsItems, setNewsItems] = useState([]);
     const [loading, setLoading] = useState(true);
     const [selectedItems, setSelectedItems] = useState(new Set());
@@ -23,70 +25,124 @@ const Papelera = () => {
         }
     };
 
-    useEffect(() => {
-        fetchRejectedNews();
-    }, []);
-
     const handleRestore = async (id) => {
+        // Optimistic update
+        setNewsItems(prev => prev.filter(item => item.id !== id));
+
         try {
             const response = await fetch(`http://localhost:8000/api/news/${id}/restore`, {
                 method: 'PUT'
             });
+
             if (response.ok) {
-                setNewsItems(prev => prev.filter(item => item.id !== id));
-                setSelectedItems(prev => {
-                    const newSet = new Set(prev);
-                    newSet.delete(id);
-                    return newSet;
-                });
                 addToast('Noticia restaurada', 'success');
+                addHighlight('dashboard', [id]);
             } else {
-                addToast('Error al restaurar', 'error');
+                throw new Error('Failed to restore');
             }
         } catch (error) {
-            addToast('Error de conexión', 'error');
+            addToast('Error al restaurar noticia', 'error');
+            fetchRejectedNews();
         }
     };
 
     const handleDelete = async (id) => {
-        if (!window.confirm('¿Estás seguro de que deseas eliminar esta noticia permanentemente?')) return;
+        if (!window.confirm('¿Estás seguro de eliminar esta noticia permanentemente?')) return;
+
+        setNewsItems(prev => prev.filter(item => item.id !== id));
 
         try {
-            const response = await fetch(`http://localhost:8000/api/news/${id}`, {
+            const response = await fetch(`http://localhost:8000/api/news/${id}/delete`, {
                 method: 'DELETE'
             });
+
             if (response.ok) {
-                setNewsItems(prev => prev.filter(item => item.id !== id));
-                setSelectedItems(prev => {
-                    const newSet = new Set(prev);
-                    newSet.delete(id);
-                    return newSet;
-                });
                 addToast('Noticia eliminada permanentemente', 'success');
             } else {
-                addToast('Error al eliminar', 'error');
+                throw new Error('Failed to delete');
             }
         } catch (error) {
-            addToast('Error de conexión', 'error');
+            addToast('Error al eliminar noticia', 'error');
+            fetchRejectedNews();
+        }
+    };
+
+    const handleBatchRestore = async () => {
+        const itemsToProcess = Array.from(selectedItems);
+        setSelectedItems(new Set());
+        setNewsItems(prev => prev.filter(item => !selectedItems.has(item.id)));
+
+        try {
+            const response = await fetch('http://localhost:8000/api/news/batch/restore', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ids: itemsToProcess })
+            });
+
+            if (response.ok) {
+                addToast(`${itemsToProcess.length} noticias restauradas`, 'success');
+                addHighlight('dashboard', itemsToProcess);
+            } else {
+                throw new Error('Failed to restore batch');
+            }
+        } catch (error) {
+            addToast('Error al restaurar noticias', 'error');
+            fetchRejectedNews();
+        }
+    };
+
+    const handleBatchDelete = async () => {
+        if (!window.confirm(`¿Estás seguro de eliminar ${selectedItems.size} noticias permanentemente?`)) return;
+
+        const itemsToProcess = Array.from(selectedItems);
+        setSelectedItems(new Set());
+        setNewsItems(prev => prev.filter(item => !selectedItems.has(item.id)));
+
+        try {
+            const response = await fetch('http://localhost:8000/api/news/batch/delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ids: itemsToProcess })
+            });
+
+            if (response.ok) {
+                addToast(`${itemsToProcess.length} noticias eliminadas`, 'success');
+            } else {
+                throw new Error('Failed to delete batch');
+            }
+        } catch (error) {
+            addToast('Error al eliminar noticias', 'error');
+            fetchRejectedNews();
         }
     };
 
     const handleEmptyTrash = async () => {
-        if (!window.confirm('¿Estás seguro de que deseas vaciar la papelera? Esta acción no se puede deshacer.')) return;
+        if (!window.confirm('¿Estás seguro de vaciar la papelera? Esta acción no se puede deshacer.')) return;
+
+        setNewsItems([]);
+        setSelectedItems(new Set());
 
         try {
-            const response = await fetch('http://localhost:8000/api/news/rejected/all', {
-                method: 'DELETE'
+            // Assuming we might want an endpoint for this, or just iterate. 
+            // For now, let's assume we iterate or have a bulk delete all.
+            // Since the user asked for "Vaciar Papelera", let's assume we use the batch delete with all IDs if no specific "empty" endpoint exists, 
+            // OR we can just implement it as batch delete of all current items.
+            // Ideally backend should have an empty endpoint, but batch delete all is safer for now without backend changes.
+            const allIds = newsItems.map(item => item.id);
+            const response = await fetch('http://localhost:8000/api/news/batch/delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ids: allIds })
             });
+
             if (response.ok) {
-                setNewsItems([]);
-                setSelectedItems(new Set());
                 addToast('Papelera vaciada', 'success');
             } else {
-                addToast('Error al vaciar la papelera', 'error');
+                throw new Error('Failed to empty trash');
             }
         } catch (error) {
-            addToast('Error de conexión', 'error');
+            addToast('Error al vaciar la papelera', 'error');
+            fetchRejectedNews();
         }
     };
 
@@ -108,87 +164,43 @@ const Papelera = () => {
         setSelectedItems(newSet);
     };
 
-    const handleBatchRestore = async () => {
-        const ids = Array.from(selectedItems);
-        try {
-            const response = await fetch('http://localhost:8000/api/news/batch/restore', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ids })
-            });
-            if (response.ok) {
-                setNewsItems(prev => prev.filter(item => !selectedItems.has(item.id)));
-                setSelectedItems(new Set());
-                addToast(`${ids.length} noticias restauradas`, 'success');
-            } else {
-                console.error('Batch restore error:', await response.text());
-                addToast('Error al restaurar noticias', 'error');
-            }
-        } catch (error) {
-            console.error('Batch restore network error:', error);
-            addToast('Error de conexión', 'error');
-        }
-    };
-
-    const handleBatchDelete = async () => {
-        if (!window.confirm(`¿Estás seguro de que deseas eliminar permanentemente ${selectedItems.size} noticias?`)) return;
-
-        const ids = Array.from(selectedItems);
-        try {
-            const response = await fetch('http://localhost:8000/api/news/batch/delete', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ids })
-            });
-            if (response.ok) {
-                setNewsItems(prev => prev.filter(item => !selectedItems.has(item.id)));
-                setSelectedItems(new Set());
-                addToast(`${ids.length} noticias eliminadas`, 'success');
-            } else {
-                console.error('Batch delete error:', await response.text());
-                addToast('Error al eliminar noticias', 'error');
-            }
-        } catch (error) {
-            console.error('Batch delete network error:', error);
-            addToast('Error de conexión', 'error');
-        }
-    };
+    useEffect(() => {
+        fetchRejectedNews();
+    }, []);
 
     return (
         <div className="p-8 bg-gray-50 dark:bg-gray-900 min-h-full transition-colors duration-300">
             <div className="flex justify-between items-center mb-6">
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                    <Trash2 className="text-red-600" />
-                    Papelera de Reciclaje
-                </h1>
-
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                    <Trash2 className="w-6 h-6 text-slate-900 dark:text-white" />
+                    <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Papelera</h1>
+                </div>
+                <div className="flex gap-2">
                     {selectedItems.size > 0 && (
-                        <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-4 duration-200">
+                        <>
                             <button
                                 onClick={handleBatchRestore}
-                                className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-1 text-sm font-medium"
+                                className="h-10 px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg transition-colors flex items-center gap-2 font-medium"
                             >
                                 <RotateCcw size={16} />
                                 Restaurar ({selectedItems.size})
                             </button>
                             <button
                                 onClick={handleBatchDelete}
-                                className="px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-1 text-sm font-medium"
+                                className="h-10 px-4 py-2 bg-red-600 text-white hover:bg-red-700 rounded-lg transition-colors flex items-center gap-2 font-medium"
                             >
                                 <Trash2 size={16} />
                                 Eliminar ({selectedItems.size})
                             </button>
-                        </div>
+                        </>
                     )}
-
-                    {newsItems.length > 0 && (
+                    {newsItems.length > 0 && selectedItems.size === 0 && (
                         <button
                             onClick={handleEmptyTrash}
-                            className="px-4 py-2 bg-white dark:bg-gray-800 border border-red-200 dark:border-red-900/30 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors flex items-center gap-2 text-sm font-medium"
+                            className="h-10 px-4 py-2 bg-red-600 text-white hover:bg-red-700 rounded-lg transition-colors flex items-center gap-2 font-medium"
                         >
                             <Trash2 size={16} />
-                            Vaciar Todo
+                            Vaciar Papelera
                         </button>
                     )}
                 </div>
@@ -230,6 +242,7 @@ const Papelera = () => {
                                         className={`
                                             hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors
                                             ${selectedItems.has(item.id) ? 'bg-indigo-50 dark:bg-indigo-900/20' : ''}
+                                            ${highlights.trash.has(item.id) ? 'bg-blue-50 dark:bg-blue-900/20' : ''}
                                         `}
                                     >
                                         <td className="px-4 py-3">
@@ -286,4 +299,4 @@ const Papelera = () => {
     );
 };
 
-export default Papelera;
+export default Trash;

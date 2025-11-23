@@ -44,8 +44,7 @@ async def get_dashboard_stats(db: Session = Depends(get_db)):
     active_news_count = db.query(models.NewsItem).filter(models.NewsItem.status == "DISCOVERED").count()
     return {
         "active_news": active_news_count,
-        "sources_count": sources_count,
-        "pending_alerts": 0
+        "sources_count": sources_count
     }
 
 @app.get("/api/sources", response_model=List[schemas.SourceResponse])
