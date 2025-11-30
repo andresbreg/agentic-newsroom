@@ -18,6 +18,20 @@ class SourceResponse(SourceBase):
     class Config:
         from_attributes = True
 
+class TagBase(BaseModel):
+    name: str
+    color: str = "blue"
+    description: Optional[str] = None
+
+class TagCreate(TagBase):
+    pass
+
+class TagResponse(TagBase):
+    id: int
+
+    class Config:
+        from_attributes = True
+
 class NewsItemBase(BaseModel):
     title: str
     url: str
@@ -35,6 +49,7 @@ class NewsItemResponse(NewsItemBase):
     ai_score: Optional[int] = None
     ai_explanation: Optional[str] = None
     ai_category: Optional[str] = None
+    tags: List[TagResponse] = []
 
     class Config:
         from_attributes = True
@@ -76,3 +91,5 @@ class InterestTopicResponse(InterestTopicBase):
 
     class Config:
         from_attributes = True
+
+

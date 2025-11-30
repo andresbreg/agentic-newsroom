@@ -1,7 +1,22 @@
-from sqlalchemy import Boolean, Column, Integer, String, DateTime, ForeignKey
+from sqlalchemy import Boolean, Column, Integer, String, DateTime, ForeignKey, Table
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from database import Base
+
+news_tags = Table('news_tags', Base.metadata,
+    Column('news_id', Integer, ForeignKey('news_items.id')),
+    Column('tag_id', Integer, ForeignKey('tags.id'))
+)
+
+class Tag(Base):
+    __tablename__ = "tags"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, index=True)
+    color = Column(String, default="blue")
+    description = Column(String, nullable=True)
+
+    news_items = relationship("NewsItem", secondary=news_tags, back_populates="tags")
 
 class Source(Base):
     __tablename__ = "sources"
@@ -28,6 +43,7 @@ class NewsItem(Base):
     ai_category = Column(String, nullable=True)
     
     source = relationship("Source")
+    tags = relationship("Tag", secondary=news_tags, back_populates="news_items")
 
 class AgentConfig(Base):
     __tablename__ = "agent_config"

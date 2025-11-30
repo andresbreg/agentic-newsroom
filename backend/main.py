@@ -264,3 +264,48 @@ def analyze_news(db: Session = Depends(get_db)):
     count = agent.analyze_batch(pending_items)
     
     return {"analyzed_count": count}
+
+# Tag Endpoints
+
+@app.get("/api/tags", response_model=List[schemas.TagResponse])
+def read_tags(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    tags = db.query(models.Tag).offset(skip).limit(limit).all()
+    return tags
+
+@app.post("/api/tags", response_model=schemas.TagResponse)
+def create_tag(tag: schemas.TagCreate, db: Session = Depends(get_db)):
+    db_tag = models.Tag(**tag.dict())
+    try:
+        db.add(db_tag)
+        db.commit()
+        db.refresh(db_tag)
+        return db_tag
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.put("/api/tags/{tag_id}", response_model=schemas.TagResponse)
+def update_tag(tag_id: int, tag: schemas.TagCreate, db: Session = Depends(get_db)):
+    db_tag = db.query(models.Tag).filter(models.Tag.id == tag_id).first()
+    if db_tag is None:
+        raise HTTPException(status_code=404, detail="Tag not found")
+    
+    for key, value in tag.dict().items():
+        setattr(db_tag, key, value)
+    
+    try:
+        db.commit()
+        db.refresh(db_tag)
+        return db_tag
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.delete("/api/tags/{tag_id}")
+def delete_tag(tag_id: int, db: Session = Depends(get_db)):
+    db_tag = db.query(models.Tag).filter(models.Tag.id == tag_id).first()
+    if db_tag is None:
+        raise HTTPException(status_code=404, detail="Tag not found")
+    db.delete(db_tag)
+    db.commit()
+    return {"ok": True}
