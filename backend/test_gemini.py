@@ -1,12 +1,18 @@
 from google import genai
 import os
+from pathlib import Path
+from dotenv import load_dotenv
 
-# --- PEGA TU API KEY AQUÍ ---
-API_KEY = "AIzaSyCVTYDXPXFDm6byoEC1tbn811Lc5AxbEQk" 
+# Cargar variables de entorno desde .env (en la carpeta frontend)
+env_path = Path(__file__).resolve().parent.parent / "frontend" / ".env"
+load_dotenv(dotenv_path=env_path)
+
+# Obtener API_KEY desde variables de entorno
+api = os.getenv("API_KEY") 
 
 print("1. Iniciando Cliente con librería moderna (google-genai)...")
 try:
-    client = genai.Client(api_key=API_KEY)
+    client = genai.Client(api_key=api)
     
     print("2. Enviando mensaje a Gemini 1.5 Flash...")
     
