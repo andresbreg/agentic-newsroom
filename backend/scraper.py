@@ -10,7 +10,10 @@ def scan_rss_sources(db: Session):
     
     for source in sources:
         try:
-            feed = feedparser.parse(source.url)
+            url = source.config.get('url')
+            if not url:
+                continue
+            feed = feedparser.parse(url)
             for entry in feed.entries:
                 # Check if exists
                 existing = db.query(NewsItem).filter(NewsItem.url == entry.link).first()

@@ -1,12 +1,14 @@
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from datetime import datetime
 
 class SourceBase(BaseModel):
     name: str
-    url: str
     type: str
-    pattern: Optional[str] = None
+    subtype: Optional[str] = None
+    config: Dict[str, Any]
+    icon: Optional[str] = None
+    health_status: str = "OK"
     active: bool = True
 
 class SourceCreate(SourceBase):
@@ -14,6 +16,21 @@ class SourceCreate(SourceBase):
 
 class SourceResponse(SourceBase):
     id: int
+
+    class Config:
+        from_attributes = True
+
+class EntityBase(BaseModel):
+    name: str
+    type: str
+    description: Optional[str] = None
+
+class EntityCreate(EntityBase):
+    source_ids: List[int] = []
+
+class EntityResponse(EntityBase):
+    id: int
+    sources: List[SourceResponse] = []
 
     class Config:
         from_attributes = True

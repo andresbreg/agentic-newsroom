@@ -309,3 +309,62 @@ def delete_tag(tag_id: int, db: Session = Depends(get_db)):
     db.delete(db_tag)
     db.commit()
     return {"ok": True}
+
+# Entity Endpoints
+
+@app.get("/api/entities", response_model=List[schemas.EntityResponse])
+def read_entities(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    entities = db.query(models.Entity).options(joinedload(models.Entity.sources)).offset(skip).limit(limit).all()
+    return entities
+
+@app.post("/api/entities", response_model=schemas.EntityResponse)
+def create_entity(entity: schemas.EntityCreate, db: Session = Depends(get_db)):
+    db_entity = models.Entity(
+        name=entity.name,
+        type=entity.type,
+        description=entity.description
+    )
+    
+    if entity.source_ids:
+        sources = db.query(models.Source).filter(models.Source.id.in_(entity.source_ids)).all()
+        db_entity.sources = sources
+    
+    db.add(db_entity)
+    try:
+        db.commit()
+        db.refresh(db_entity)
+        return db_entity
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.put("/api/entities/{entity_id}", response_model=schemas.EntityResponse)
+def update_entity(entity_id: int, entity: schemas.EntityCreate, db: Session = Depends(get_db)):
+    db_entity = db.query(models.Entity).filter(models.Entity.id == entity_id).first()
+    if db_entity is None:
+        raise HTTPException(status_code=404, detail="Entity not found")
+    
+    db_entity.name = entity.name
+    db_entity.type = entity.type
+    db_entity.description = entity.description
+    
+    if entity.source_ids is not None:
+        sources = db.query(models.Source).filter(models.Source.id.in_(entity.source_ids)).all()
+        db_entity.sources = sources
+    
+    try:
+        db.commit()
+        db.refresh(db_entity)
+        return db_entity
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.delete("/api/entities/{entity_id}")
+def delete_entity(entity_id: int, db: Session = Depends(get_db)):
+    db_entity = db.query(models.Entity).filter(models.Entity.id == entity_id).first()
+    if db_entity is None:
+        raise HTTPException(status_code=404, detail="Entity not found")
+    db.delete(db_entity)
+    db.commit()
+    return {"ok": True}
