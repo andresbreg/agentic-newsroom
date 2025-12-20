@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useToast } from '../context/ToastContext';
-import { Filter, CheckSquare, Square, Trash2, CheckCircle, RefreshCw, LayoutDashboard, ExternalLink, Sparkles, FileText, Fingerprint } from 'lucide-react';
+import { Filter, CheckSquare, Square, Trash2, CheckCircle, RefreshCw, LayoutDashboard, ExternalLink, Sparkles, FileText, Fingerprint, Loader2 } from 'lucide-react';
 import { useHighlight } from '../context/HighlightContext';
 import Reader from '../components/Reader';
 import { cn } from '../lib/utils';
@@ -37,7 +37,8 @@ const News = () => {
         }
     };
 
-    const fetchNews = async () => {
+    const fetchNews = async (silent = false) => {
+        if (!silent) setLoading(true);
         try {
             const response = await fetch('http://localhost:8000/api/news/discovered');
             if (response.ok) {
@@ -46,6 +47,8 @@ const News = () => {
             }
         } catch (error) {
             console.error('Error fetching news:', error);
+        } finally {
+            if (!silent) setLoading(false);
         }
     };
 
@@ -175,7 +178,16 @@ const News = () => {
     };
 
     useEffect(() => {
+        // Initial fetch
         Promise.all([fetchStats(), fetchNews(), fetchSources()]).finally(() => setLoading(false));
+
+        // Silent polling for translation progress
+        const interval = setInterval(() => {
+            fetchNews(true);
+            fetchStats();
+        }, 6000);
+
+        return () => clearInterval(interval);
     }, []);
 
 
@@ -296,20 +308,22 @@ const News = () => {
                                 <tr>
                                     <th className="px-2 py-3 font-medium w-8 text-center text-gray-400">#</th>
                                     <th className="px-4 py-3 font-medium w-10 text-gray-400">
-                                        <button
-                                            onClick={toggleSelectAll}
-                                            className="hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
-                                        >
-                                            {selectedItems.size === filteredNews.length && filteredNews.length > 0 ? (
-                                                <CheckSquare size={18} className="text-indigo-600" />
-                                            ) : (
-                                                <Square size={18} />
-                                            )}
-                                        </button>
+                                        <div className="flex items-center justify-center">
+                                            <button
+                                                onClick={toggleSelectAll}
+                                                className="hover:text-gray-600 dark:hover:text-gray-200 transition-colors flex items-center"
+                                            >
+                                                {selectedItems.size === filteredNews.length && filteredNews.length > 0 ? (
+                                                    <CheckSquare size={18} className="text-indigo-600" />
+                                                ) : (
+                                                    <Square size={18} />
+                                                )}
+                                            </button>
+                                        </div>
                                     </th>
                                     <th className="px-4 py-3 font-medium w-24">Fecha</th>
                                     <th className="px-4 py-3 font-medium w-20">Fuente</th>
-                                    <th className="px-4 py-3 font-medium w-16 text-center">IDM</th>
+                                    <th className="px-4 py-3 font-medium w-16 text-center">Idioma</th>
                                     <th className="px-4 py-3 font-medium">Título</th>
                                     <th className="px-4 py-3 font-medium w-28 text-right">Acciones</th>
                                 </tr>
@@ -329,16 +343,18 @@ const News = () => {
                                             {index + 1}
                                         </td>
                                         <td className="px-4 py-3">
-                                            <button
-                                                onClick={() => toggleSelectItem(item.id)}
-                                                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
-                                            >
-                                                {selectedItems.has(item.id) ? (
-                                                    <CheckSquare size={18} className="text-indigo-600" />
-                                                ) : (
-                                                    <Square size={18} />
-                                                )}
-                                            </button>
+                                            <div className="flex items-center justify-center">
+                                                <button
+                                                    onClick={() => toggleSelectItem(item.id)}
+                                                    className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors flex items-center"
+                                                >
+                                                    {selectedItems.has(item.id) ? (
+                                                        <CheckSquare size={18} className="text-indigo-600" />
+                                                    ) : (
+                                                        <Square size={18} />
+                                                    )}
+                                                </button>
+                                            </div>
                                         </td>
                                         <td className="px-4 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap text-xs">
                                             {new Date(item.published_date).toLocaleDateString()}
@@ -349,37 +365,63 @@ const News = () => {
                                             </span>
                                         </td>
                                         <td className="px-4 py-3 text-center">
-                                            {item.language ? (
-                                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 uppercase tracking-tight">
-                                                    {item.language}
-                                                </span>
-                                            ) : (
-                                                <span className="text-gray-400 text-[10px]">-</span>
-                                            )}
-                                        </td>
-                                        <td className="px-4 py-3 text-gray-900 dark:text-white">
-                                            <span className={`font-medium line-clamp-1 text-sm mb-1 ${!item.title_es ? 'opacity-60' : ''
-                                                }`}>
-                                                {item.title_es || item.title}
-                                            </span>
-                                            {item.entities && item.entities.length > 0 && (
-                                                <div className="flex flex-wrap gap-1 mt-1">
-                                                    {item.entities.map(entity => (
-                                                        <span
-                                                            key={entity.id}
-                                                            className={cn(
-                                                                "px-1.5 py-0.5 rounded-full text-[10px] font-medium transition-colors",
-                                                                entity.type === 'PERSON' ? "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300" :
-                                                                    entity.type === 'ORGANIZATION' ? "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300" :
-                                                                        entity.type === 'LOCATION' ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300" :
-                                                                            "bg-gray-100 text-gray-700 dark:bg-gray-900/40 dark:text-gray-300"
-                                                            )}
-                                                        >
-                                                            {entity.name}
+                                            <div className="flex items-center justify-center gap-1">
+                                                {/* Original Language Badge (only if not native ES) */}
+                                                {item.language && item.language !== 'es' && (
+                                                    <span className="inline-flex items-center w-5 h-4 justify-center rounded text-[10px] font-bold bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 uppercase tracking-tighter">
+                                                        {item.language.substring(0, 2)}
+                                                    </span>
+                                                )}
+
+                                                {/* Translation Progress / Spanish Badge */}
+                                                {item.language === 'es' ? (
+                                                    // Native Spanish
+                                                    <span className="inline-flex items-center w-5 h-4 justify-center rounded text-[10px] font-bold bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400 uppercase tracking-tighter border border-indigo-200 dark:border-indigo-800">
+                                                        ES
+                                                    </span>
+                                                ) : (
+                                                    // Not native Spanish
+                                                    item.title_es ? (
+                                                        // Translated
+                                                        <span className="inline-flex items-center w-5 h-4 justify-center rounded text-[10px] font-bold bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400 uppercase tracking-tighter">
+                                                            ES
                                                         </span>
-                                                    ))}
-                                                </div>
-                                            )}
+                                                    ) : (
+                                                        // In progress
+                                                        item.language && <Loader2 className="w-3 h-3 animate-spin text-indigo-500" />
+                                                    )
+                                                )}
+
+                                                {!item.language && <span className="text-gray-400 text-[10px]">-</span>}
+                                            </div>
+                                        </td>
+                                        <td className="px-4 py-3 text-gray-900 dark:text-white align-middle">
+                                            <div className="flex flex-col justify-center">
+                                                <span
+                                                    title={item.title_es || item.title}
+                                                    className={`font-medium line-clamp-1 text-sm cursor-default ${!item.title_es ? 'opacity-60' : ''}`}
+                                                >
+                                                    {item.title_es || item.title}
+                                                </span>
+                                                {item.entities && item.entities.length > 0 && (
+                                                    <div className="flex flex-wrap gap-1 mt-1.5">
+                                                        {item.entities.map(entity => (
+                                                            <span
+                                                                key={entity.id}
+                                                                className={cn(
+                                                                    "px-1.5 py-0.5 rounded-full text-[10px] font-medium transition-colors",
+                                                                    entity.type === 'PERSON' ? "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300" :
+                                                                        entity.type === 'ORGANIZATION' ? "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300" :
+                                                                            entity.type === 'LOCATION' ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300" :
+                                                                                "bg-gray-100 text-gray-700 dark:bg-gray-900/40 dark:text-gray-300"
+                                                                )}
+                                                            >
+                                                                {entity.name}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
                                         </td>
                                         <td className="px-4 py-3 text-right">
                                             <div className="flex justify-end gap-1">

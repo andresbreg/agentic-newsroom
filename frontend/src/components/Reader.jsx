@@ -25,9 +25,17 @@ const Reader = ({ item, onClose, onNext, onPrev, hasNext, hasPrev }) => {
                             <span className="text-xs text-gray-500 dark:text-gray-400">
                                 {new Date(item.published_date).toLocaleDateString()}
                             </span>
+                            {item.language && item.language !== 'es' && (
+                                <>
+                                    <span className="text-gray-300 dark:text-gray-600">•</span>
+                                    <span className="text-xs font-bold text-gray-400 uppercase tracking-tight">
+                                        {item.language}
+                                    </span>
+                                </>
+                            )}
                         </div>
                         <h2 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white leading-tight">
-                            {item.title}
+                            {item.title_es || item.title}
                         </h2>
                     </div>
 

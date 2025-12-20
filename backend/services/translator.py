@@ -7,120 +7,234 @@ Processes items where title_es IS NULL.
 
 import os
 import json
+import time
+import logging
+from typing import List, Dict, Any
 from sqlalchemy.orm import Session
 from models import NewsItem
 from langdetect import detect, LangDetectException
 from groq import Groq
-from typing import List
-import logging
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+def translate_batch(client: Groq, model: str, items_to_translate: List[NewsItem]) -> Dict[str, Any]:
+    """
+    Helper to translate a batch of news items using a single Groq API call.
+    Includes performance and usage metrics tracking.
+    """
+    if not items_to_translate:
+        return {"results": {}, "usage": None, "duration": 0}
+
+    # Logging which items are being sent
+    item_titles = [f"[{item.id}] {item.title[:40]}..." for item in items_to_translate]
+    logger.info(f"[TRADUCTOR] Enviando lote para traducir: {', '.join(item_titles)}")
+
+    # Construct the batch request payload
+    batch_payload = {}
+    for item in items_to_translate:
+        batch_payload[str(item.id)] = {
+            "title": item.title,
+            "content": item.content_snippet or "No summary available"
+        }
+
+    prompt = f"""You are a professional news translator. Translate the following news items to Neutral Spanish. Maintain a journalistic tone and keep proper nouns where appropriate. 
+
+CRITICAL GRAMMAR RULES:
+1. TITLES: NEVER include a trailing period (.) at the end of the title.
+2. CONTENT/SUMMARY: ALWAYS include a trailing period (.) at the end of the summary.
+
+Return ONLY a JSON object where keys are the IDs provided.
+
+Structure:
+{{
+  "ID": {{
+    "title_es": "translated title",
+    "content_es": "translated content"
+  }}
+}}
+
+Items to translate:
+{json.dumps(batch_payload, indent=2)}"""
+
+    batch_start = time.time()
+    try:
+        response = client.chat.completions.create(
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are a translation service that outputs strictly valid JSON."
+                },
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            model=model,
+            response_format={"type": "json_object"},
+            temperature=0.2
+        )
+        batch_duration = time.time() - batch_start
+        
+        # Extract usage metrics from response
+        usage = response.usage
+        input_tokens = usage.prompt_tokens
+        output_tokens = usage.completion_tokens
+        total_tokens = usage.total_tokens
+        
+        logger.info(f"[MÉTRICAS DEL LOTE]")
+        logger.info(f"  > Tokens de Entrada: {input_tokens}")
+        logger.info(f"  > Tokens de Salida: {output_tokens}")
+        logger.info(f"  > Total de Tokens: {total_tokens}")
+        logger.info(f"  > Tiempo de Respuesta: {batch_duration:.2f}s")
+        
+        # Parse JSON content
+        result = json.loads(response.choices[0].message.content)
+        
+        # Log success for each item in the result
+        for item_id, data in result.items():
+            logger.info(f"[ÉXITO] Noticia {item_id} traducida: {data.get('title_es', '')[:50]}...")
+            
+        return {
+            "results": result,
+            "usage": usage,
+            "duration": batch_duration
+        }
+
+    except Exception as e:
+        logger.error(f"[ERROR CRÍTICO] Traducción por lote fallida: {e}")
+        return {"results": {}, "usage": None, "duration": time.time() - batch_start}
 
 def process_pending_translations(db: Session, item_ids: List[int] = None) -> int:
     """
-    Process pending translations for news items.
-    
-    Args:
-        db: Database session
-        item_ids: Optional list of specific item IDs to process. If None, processes all pending.
-    
-    Returns:
-        int: Number of items translated
+    Process translations for news items using batching and rate limiting.
+    Provides detailed execution metrics.
     """
-    # Select items where title_es IS NULL
-    query = db.query(NewsItem).filter(NewsItem.title_es == None)
+    total_process_start = time.time()
+    logger.info("====================================================")
+    logger.info("INICIANDO SERVICIO DE TRADUCCIÓN (BATCH MODE)")
+    logger.info("====================================================")
     
+    # 1. Fetch all items where title_es IS NULL
+    query = db.query(NewsItem).filter(NewsItem.title_es == None)
     if item_ids:
         query = query.filter(NewsItem.id.in_(item_ids))
     
-    pending_items = query.limit(10).all()  # Process in batches of 10
+    pending_items = query.all()
     
     if not pending_items:
-        logger.info("[TRANSLATOR] No pending translations")
+        logger.info("[TRADUCTOR] No hay noticias pendientes de traducción.")
         return 0
     
-    logger.info(f"[TRANSLATOR] Found {len(pending_items)} pending items for translation")
+    logger.info(f"[TRADUCTOR] Total de noticias a procesar: {len(pending_items)}")
     
-    # Initialize Groq client
-    api_key = os.getenv("GROQ_API_KEY") or os.getenv("API_KEY")
-    model = os.getenv("MODEL", "llama-3.1-8b-instant")
-    
-    if not api_key:
-        logger.error("[TRANSLATOR] GROQ_API_KEY not found in environment")
-        return 0
-    
-    client = Groq(api_key=api_key)
-    translated_count = 0
-    
+    # 2. Local Phase: Detect language and handle Spanish items
+    batch_queue = []
+    local_copies = 0
     for item in pending_items:
         try:
-            # Step A: Detect language (if not already detected)
+            # Language Detection
             if not item.language or item.language == "unknown":
                 text_sample = f"{item.title} {item.content_snippet or ''}".strip()
                 try:
                     item.language = detect(text_sample)
                 except LangDetectException:
                     item.language = "unknown"
-                    logger.warning(f"[TRANSLATOR] Could not detect language for item {item.id}")
-            
-            # Step B: Translation logic
+
+            # Handle Spanish immediately
             if item.language == 'es':
-                # Already in Spanish, just copy
                 item.title_es = item.title
                 item.content_es = item.content_snippet
-                logger.info(f"[TRANSLATOR] Item {item.id} already in Spanish, copied directly")
+                local_copies += 1
             else:
-                # Translate using Groq
-                prompt = f"""Translate the following news title and summary to Spanish. Maintain a neutral journalistic tone. Return ONLY a JSON object with this exact format:
-{{
-  "title": "translated title in Spanish",
-  "content": "translated summary in Spanish"
-}}
-
-Title: {item.title}
-Summary: {item.content_snippet or 'No summary available'}"""
-
-                try:
-                    response = client.chat.completions.create(
-                        messages=[
-                            {
-                                "role": "system",
-                                "content": "You are a professional translator. Return ONLY valid JSON."
-                            },
-                            {
-                                "role": "user",
-                                "content": prompt
-                            }
-                        ],
-                        model=model,
-                        response_format={"type": "json_object"},
-                        temperature=0.3
-                    )
-                    
-                    result_text = response.choices[0].message.content
-                    result = json.loads(result_text)
-                    
-                    item.title_es = result.get("title", item.title)
-                    item.content_es = result.get("content", item.content_snippet)
-                    
-                    logger.info(f"[TRANSLATOR] Translated item {item.id} from {item.language} to Spanish")
-                    
-                except Exception as e:
-                    logger.error(f"[TRANSLATOR] Groq translation failed for item {item.id}: {e}")
-                    # Fallback: use original text
-                    item.title_es = item.title
-                    item.content_es = item.content_snippet
-            
-            translated_count += 1
-            
+                batch_queue.append(item)
         except Exception as e:
-            logger.error(f"[TRANSLATOR] Error processing item {item.id}: {e}")
-            # Set to original to avoid reprocessing
-            item.title_es = item.title
-            item.content_es = item.content_snippet
+            logger.error(f"[ERROR LOCAL] Item {item.id}: {e}")
+
+    if local_copies > 0:
+        logger.info(f"[LOCAL] {local_copies} noticias ya estaban en español (procesadas localmente)")
     
-    db.commit()
-    logger.info(f"[TRANSLATOR] Completed {translated_count} translations")
+    db.commit() # Save detections
+    
+    if not batch_queue:
+        logger.info("[TRADUCTOR] Proceso concluido sin llamadas externas.")
+        return len(pending_items)
+
+    # 3. API Phase: Batch translation
+    api_key = os.getenv("GROQ_API_KEY") or os.getenv("API_KEY")
+    model = os.getenv("MODEL", "llama-3.1-8b-instant")
+    
+    if not api_key:
+        logger.error("[ERROR] No se encontró GROQ_API_KEY. Abortando.")
+        return 0
+    
+    client = Groq(api_key=api_key)
+    batch_size = 5
+    translated_count = 0
+    total_batches = (len(batch_queue) + batch_size - 1) // batch_size
+    
+    # Accumulated metrics
+    acc_input_tokens = 0
+    acc_output_tokens = 0
+    acc_total_tokens = 0
+    
+    logger.info(f"[API] Iniciando traducción de {len(batch_queue)} noticias en {total_batches} lotes")
+    
+    for i in range(0, len(batch_queue), batch_size):
+        current_batch = batch_queue[i : i + batch_size]
+        batch_num = i//batch_size + 1
+        logger.info(f"--- LOTE {batch_num} de {total_batches} ({len(current_batch)} noticias) ---")
+        
+        batch_data = translate_batch(client, model, current_batch)
+        batch_results = batch_data["results"]
+        usage = batch_data["usage"]
+        
+        if usage:
+            acc_input_tokens += usage.prompt_tokens
+            acc_output_tokens += usage.completion_tokens
+            acc_total_tokens += usage.total_tokens
+        
+        # Map results back to items
+        for item in current_batch:
+            item_id_str = str(item.id)
+            if item_id_str in batch_results:
+                item.title_es = batch_results[item_id_str].get("title_es")
+                item.content_es = batch_results[item_id_str].get("content_es")
+                translated_count += 1
+            else:
+                # Fallback: copy original with error prefix
+                logger.warning(f"[FALLO] Noticia {item.id} sin traducción en la respuesta. Usando fallback.")
+                item.title_es = f"[Fallo] {item.title}"
+                item.content_es = item.content_snippet
+        
+        db.commit()
+        
+        # 4. Partial Summary after each batch
+        current_duration = time.time() - total_process_start
+        logger.info("----------------------------------------------------")
+        logger.info("RESUMEN PARCIAL DEL PROCESO")
+        logger.info(f"  > Noticias Traducidas (API): {translated_count}")
+        logger.info(f"  > Tokens de Entrada Acumulados: {acc_input_tokens}")
+        logger.info(f"  > Tokens de Salida Acumulados: {acc_output_tokens}")
+        logger.info(f"  > Total de Tokens Consumidos: {acc_total_tokens}")
+        logger.info(f"  > Tiempo Total de Ejecución: {current_duration:.2f}s")
+        logger.info("----------------------------------------------------")
+        
+        # 5. Rate Limiting Pause
+        if i + batch_size < len(batch_queue):
+            logger.info(f"[PAUSA] Esperando 12 segundos para cumplir con el Rate Limit...")
+            time.sleep(12)
+    
+    total_duration = time.time() - total_process_start
+    
+    logger.info("====================================================")
+    logger.info("RESUMEN FINAL DEL PROCESO")
+    logger.info(f"  > Noticias Traducidas (API): {translated_count}")
+    logger.info(f"  > Noticias Omitidas (ES): {local_copies}")
+    logger.info(f"  > Tokens de Entrada Acumulados: {acc_input_tokens}")
+    logger.info(f"  > Tokens de Salida Acumulados: {acc_output_tokens}")
+    logger.info(f"  > Total de Tokens Consumidos: {acc_total_tokens}")
+    logger.info(f"  > Tiempo Total de Ejecución: {total_duration:.2f}s")
+    logger.info("====================================================")
+    
     return translated_count
