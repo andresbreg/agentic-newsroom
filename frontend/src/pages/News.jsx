@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useToast } from '../context/ToastContext';
-import { Filter, CheckSquare, Square, Trash2, CheckCircle, RefreshCw, LayoutDashboard, ExternalLink, Sparkles } from 'lucide-react';
+import { Filter, CheckSquare, Square, Trash2, CheckCircle, RefreshCw, LayoutDashboard, ExternalLink, Sparkles, FileText } from 'lucide-react';
 import { useHighlight } from '../context/HighlightContext';
+import Reader from '../components/Reader';
 
 const News = () => {
     const { addToast } = useToast();
@@ -19,6 +20,7 @@ const News = () => {
     const [selectedItems, setSelectedItems] = useState(new Set());
     const [filterSource, setFilterSource] = useState('');
     const [sources, setSources] = useState([]);
+    const [readingItem, setReadingItem] = useState(null);
 
     const [newlyFoundIds, setNewlyFoundIds] = useState([]);
 
@@ -174,11 +176,28 @@ const News = () => {
         Promise.all([fetchStats(), fetchNews(), fetchSources()]).finally(() => setLoading(false));
     }, []);
 
+
+
     // Filter Logic
     const filteredNews = newsItems.filter(item => {
         if (!filterSource) return true;
         return item.source_id === parseInt(filterSource);
     });
+
+    // Navigation for Reader (Moved here to avoid ReferenceError)
+    const readingIndex = readingItem ? filteredNews.findIndex(i => i.id === readingItem.id) : -1;
+
+    const handleNext = () => {
+        if (readingIndex < filteredNews.length - 1) {
+            setReadingItem(filteredNews[readingIndex + 1]);
+        }
+    };
+
+    const handlePrev = () => {
+        if (readingIndex > 0) {
+            setReadingItem(filteredNews[readingIndex - 1]);
+        }
+    };
 
     return (
         <div className="p-8 bg-gray-50 dark:bg-gray-900 min-h-full transition-colors duration-300">
@@ -344,8 +363,8 @@ const News = () => {
                                                 <div
                                                     title={`${item.ai_category || 'Análisis'}: ${item.ai_score}/100\n${item.ai_explanation || ''}`}
                                                     className={`w-6 h-6 mx-auto rounded-full flex items-center justify-center text-[10px] font-bold cursor-help ${item.ai_score >= 70 ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' :
-                                                            item.ai_score >= 30 ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300' :
-                                                                'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                                                        item.ai_score >= 30 ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300' :
+                                                            'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
                                                         }`}
                                                 >
                                                     {item.ai_score}
@@ -361,6 +380,15 @@ const News = () => {
                                         </td>
                                         <td className="px-4 py-3 text-right">
                                             <div className="flex justify-end gap-1">
+                                                {item.content_snippet && (
+                                                    <button
+                                                        onClick={() => setReadingItem(item)}
+                                                        className="p-1 text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-md transition-colors"
+                                                        title="Leer contenido"
+                                                    >
+                                                        <FileText size={18} />
+                                                    </button>
+                                                )}
                                                 <a
                                                     href={item.url}
                                                     target="_blank"
@@ -393,6 +421,16 @@ const News = () => {
                     </div >
                 </div >
             )}
+
+            {/* Reader Modal */}
+            <Reader
+                item={readingItem}
+                onClose={() => setReadingItem(null)}
+                onNext={handleNext}
+                onPrev={handlePrev}
+                hasNext={readingIndex < filteredNews.length - 1}
+                hasPrev={readingIndex > 0}
+            />
         </div >
     );
 };

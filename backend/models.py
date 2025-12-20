@@ -61,6 +61,7 @@ class NewsItem(Base):
     ai_explanation = Column(String, nullable=True)
     ai_category = Column(String, nullable=True)
     language = Column(String, nullable=True)
+    content_snippet = Column(String, nullable=True)
     
     source = relationship("Source")
     tags = relationship("Tag", secondary=news_tags, back_populates="news_items")

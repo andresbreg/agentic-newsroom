@@ -64,5 +64,4 @@ agentic-newsroom/
 
 - **Collapsible Sidebar**: Navigation with Dashboard and Settings.
 - **Status Bar**: Real-time backend connection status and system toggle.
-- **Notifications**: Toast notification system (testable on Dashboard).
 - **Modern UI**: Built with Tailwind CSS and Lucide Icons.

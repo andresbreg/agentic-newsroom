@@ -24,7 +24,8 @@ def run_migrations():
             ("ai_score", "INTEGER"),
             ("ai_explanation", "VARCHAR"),
             ("ai_category", "VARCHAR"),
-            ("language", "VARCHAR")
+            ("language", "VARCHAR"),
+            ("content_snippet", "TEXT")
         ]
         
         for col_name, col_type in columns:

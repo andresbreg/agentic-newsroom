@@ -3,6 +3,18 @@ from sqlalchemy.orm import Session
 from models import Source, NewsItem
 from datetime import datetime
 from langdetect import detect
+from bs4 import BeautifulSoup
+import re
+
+def clean_html(html_content):
+    if not html_content:
+        return ""
+    # Use BeautifulSoup to strip tags
+    soup = BeautifulSoup(html_content, "html.parser")
+    text = soup.get_text(separator=" ")
+    # Clean up whitespace
+    text = re.sub(r'\s+', ' ', text).strip()
+    return text
 
 def scan_rss_sources(db: Session):
     sources = db.query(Source).filter(Source.type == 'RSS', Source.active == True).all()
@@ -39,7 +51,22 @@ def scan_rss_sources(db: Session):
                     # Language detection
                     title = entry.get('title', 'Sin título')
                     summary = entry.get('summary', '')
-                    text_sample = f"{title} {summary}".strip()
+                    
+                    # Content Extraction Logic
+                    content_raw = ""
+                    if hasattr(entry, 'content') and entry.content:
+                        content_raw = entry.content[0].value
+                    elif hasattr(entry, 'summary_detail') and entry.summary_detail:
+                        content_raw = entry.summary_detail.value
+                    else:
+                        content_raw = summary
+                    
+                    content_snippet = clean_html(content_raw)
+                    
+                    if not content_snippet:
+                        print(f"[WARNING] No content found for item: {title}. Available keys: {entry.keys()}")
+
+                    text_sample = f"{title} {content_snippet}".strip()
                     
                     detected_lang = "unknown"
                     if text_sample:
@@ -54,7 +81,8 @@ def scan_rss_sources(db: Session):
                         url=link,
                         published_date=published_iso,
                         status="DISCOVERED",
-                        language=detected_lang
+                        language=detected_lang,
+                        content_snippet=content_snippet
                     )
                     db.add(new_item)
                     db.flush() # Get ID
