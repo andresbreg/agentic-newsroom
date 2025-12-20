@@ -30,7 +30,17 @@ class EntityCreate(EntityBase):
 
 class EntityResponse(EntityBase):
     id: int
+    is_ignored: bool = False
     sources: List[SourceResponse] = []
+
+    class Config:
+        from_attributes = True
+
+class EntitySimpleResponse(BaseModel):
+    id: int
+    name: str
+    type: str
+    is_ignored: bool = False
 
     class Config:
         from_attributes = True
@@ -63,12 +73,12 @@ class NewsItemResponse(NewsItemBase):
     source_id: int
     source: Optional[SourceResponse] = None
     created_at: datetime
-    ai_score: Optional[int] = None
-    ai_explanation: Optional[str] = None
-    ai_category: Optional[str] = None
     language: Optional[str] = None
     content_snippet: Optional[str] = None
+    title_es: Optional[str] = None
+    content_es: Optional[str] = None
     tags: List[TagResponse] = []
+    entities: List[EntitySimpleResponse] = []
 
     class Config:
         from_attributes = True

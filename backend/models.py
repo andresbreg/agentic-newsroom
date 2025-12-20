@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, Integer, String, DateTime, ForeignKey, Table, JSON
+from sqlalchemy import Boolean, Column, Integer, String, Text, DateTime, ForeignKey, Table, JSON
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from database import Base
@@ -11,6 +11,11 @@ news_tags = Table('news_tags', Base.metadata,
 entity_sources = Table('entity_sources', Base.metadata,
     Column('entity_id', Integer, ForeignKey('entities.id')),
     Column('source_id', Integer, ForeignKey('sources.id'))
+)
+
+news_entities = Table('news_entities', Base.metadata,
+    Column('news_id', Integer, ForeignKey('news_items.id')),
+    Column('entity_id', Integer, ForeignKey('entities.id'))
 )
 
 class Tag(Base):
@@ -44,8 +49,10 @@ class Entity(Base):
     name = Column(String, unique=True, index=True, nullable=False)
     type = Column(String)  # PERSON, ORGANIZATION, LOCATION, CONCEPT
     description = Column(String, nullable=True)
+    is_ignored = Column(Boolean, default=False)
 
     sources = relationship("Source", secondary=entity_sources, back_populates="entities")
+    news_items = relationship("NewsItem", secondary=news_entities, back_populates="entities")
 
 class NewsItem(Base):
     __tablename__ = "news_items"
@@ -57,14 +64,19 @@ class NewsItem(Base):
     published_date = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow)
     status = Column(String, default="DISCOVERED")  # DISCOVERED, APPROVED, REJECTED
-    ai_score = Column(Integer, nullable=True)
-    ai_explanation = Column(String, nullable=True)
-    ai_category = Column(String, nullable=True)
     language = Column(String, nullable=True)
     content_snippet = Column(String, nullable=True)
     
+    # Spanish translations
+    title_es = Column(String, nullable=True)
+    content_es = Column(Text, nullable=True)
+    
+    # Processing flags
+    entities_extracted = Column(Boolean, default=False)
+    
     source = relationship("Source")
     tags = relationship("Tag", secondary=news_tags, back_populates="news_items")
+    entities = relationship("Entity", secondary=news_entities, back_populates="news_items")
 
 class AgentConfig(Base):
     __tablename__ = "agent_config"

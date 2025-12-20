@@ -6,3 +6,6 @@ requests
 feedparser
 beautifulsoup4
 google-genai
+groq
+python-dotenv
+langdetect

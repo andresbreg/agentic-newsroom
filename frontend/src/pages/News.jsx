@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useToast } from '../context/ToastContext';
-import { Filter, CheckSquare, Square, Trash2, CheckCircle, RefreshCw, LayoutDashboard, ExternalLink, Sparkles, FileText } from 'lucide-react';
+import { Filter, CheckSquare, Square, Trash2, CheckCircle, RefreshCw, LayoutDashboard, ExternalLink, Sparkles, FileText, Fingerprint } from 'lucide-react';
 import { useHighlight } from '../context/HighlightContext';
 import Reader from '../components/Reader';
+import { cn } from '../lib/utils';
 
 const News = () => {
     const { addToast } = useToast();
@@ -14,7 +15,7 @@ const News = () => {
     const [newsItems, setNewsItems] = useState([]);
     const [loading, setLoading] = useState(true);
     const [scanning, setScanning] = useState(false);
-    const [analyzing, setAnalyzing] = useState(false);
+    const [extracting, setExtracting] = useState(false);
 
     // New State
     const [selectedItems, setSelectedItems] = useState(new Set());
@@ -80,21 +81,22 @@ const News = () => {
         }
     };
 
-    const handleAnalyze = async () => {
-        setAnalyzing(true);
+
+    const handleExtractEntities = async () => {
+        setExtracting(true);
         try {
-            const response = await fetch('http://localhost:8000/api/analyze', { method: 'POST' });
+            const response = await fetch('http://localhost:8000/api/extract-entities', { method: 'POST' });
             if (response.ok) {
                 const data = await response.json();
-                addToast(`Análisis completado. ${data.analyzed_count} noticias analizadas.`, 'success');
+                addToast(`Extracción completada. ${data.extracted_count} entidades vinculadas.`, 'success');
                 await fetchNews();
             } else {
-                addToast('Error al analizar noticias.', 'error');
+                addToast('Error al extraer entidades.', 'error');
             }
         } catch (error) {
             addToast('Error de conexión.', 'error');
         } finally {
-            setAnalyzing(false);
+            setExtracting(false);
         }
     };
 
@@ -208,12 +210,12 @@ const News = () => {
                 </div>
                 <div className="flex gap-2">
                     <button
-                        onClick={handleAnalyze}
-                        disabled={analyzing}
-                        className={`px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2 ${analyzing ? 'opacity-75 cursor-not-allowed' : ''}`}
+                        onClick={handleExtractEntities}
+                        disabled={extracting}
+                        className={`px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors flex items-center gap-2 ${extracting ? 'opacity-75 cursor-not-allowed' : ''}`}
                     >
-                        <Sparkles size={20} className={analyzing ? 'animate-pulse' : ''} />
-                        {analyzing ? 'Analizando...' : 'Analizar IA'}
+                        <Fingerprint size={20} className={extracting ? 'animate-pulse' : ''} />
+                        {extracting ? 'Identificando...' : 'Identificar Entidades'}
                     </button>
                     <button
                         onClick={handleScan}
@@ -308,9 +310,6 @@ const News = () => {
                                     <th className="px-4 py-3 font-medium w-24">Fecha</th>
                                     <th className="px-4 py-3 font-medium w-20">Fuente</th>
                                     <th className="px-4 py-3 font-medium w-16 text-center">IDM</th>
-                                    <th className="px-2 py-3 font-medium w-10 text-center" title="Relevancia IA">
-                                        <Sparkles size={16} className="mx-auto" />
-                                    </th>
                                     <th className="px-4 py-3 font-medium">Título</th>
                                     <th className="px-4 py-3 font-medium w-28 text-right">Acciones</th>
                                 </tr>
@@ -358,25 +357,29 @@ const News = () => {
                                                 <span className="text-gray-400 text-[10px]">-</span>
                                             )}
                                         </td>
-                                        <td className="px-2 py-3 text-center">
-                                            {item.ai_score !== null ? (
-                                                <div
-                                                    title={`${item.ai_category || 'Análisis'}: ${item.ai_score}/100\n${item.ai_explanation || ''}`}
-                                                    className={`w-6 h-6 mx-auto rounded-full flex items-center justify-center text-[10px] font-bold cursor-help ${item.ai_score >= 70 ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' :
-                                                        item.ai_score >= 30 ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300' :
-                                                            'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
-                                                        }`}
-                                                >
-                                                    {item.ai_score}
-                                                </div>
-                                            ) : (
-                                                <span className="text-gray-300 text-[10px]">-</span>
-                                            )}
-                                        </td>
                                         <td className="px-4 py-3 text-gray-900 dark:text-white">
-                                            <span className="font-medium line-clamp-1 text-sm">
-                                                {item.title}
+                                            <span className={`font-medium line-clamp-1 text-sm mb-1 ${!item.title_es ? 'opacity-60' : ''
+                                                }`}>
+                                                {item.title_es || item.title}
                                             </span>
+                                            {item.entities && item.entities.length > 0 && (
+                                                <div className="flex flex-wrap gap-1 mt-1">
+                                                    {item.entities.map(entity => (
+                                                        <span
+                                                            key={entity.id}
+                                                            className={cn(
+                                                                "px-1.5 py-0.5 rounded-full text-[10px] font-medium transition-colors",
+                                                                entity.type === 'PERSON' ? "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300" :
+                                                                    entity.type === 'ORGANIZATION' ? "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300" :
+                                                                        entity.type === 'LOCATION' ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300" :
+                                                                            "bg-gray-100 text-gray-700 dark:bg-gray-900/40 dark:text-gray-300"
+                                                            )}
+                                                        >
+                                                            {entity.name}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            )}
                                         </td>
                                         <td className="px-4 py-3 text-right">
                                             <div className="flex justify-end gap-1">

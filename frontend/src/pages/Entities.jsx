@@ -3,7 +3,7 @@ import axios from 'axios';
 import {
     Trash2, Plus, Database, Pencil,
     X, User, Building2, MapPin, Lightbulb,
-    CheckCircle2, Link2, Info
+    CheckCircle2, Link2, Info, EyeOff, Eye
 } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
 
@@ -27,12 +27,13 @@ const Entities = () => {
         description: '',
         source_ids: []
     });
+    const [activeTab, setActiveTab] = useState('active'); // 'active' or 'ignored'
 
     const fetchData = async () => {
         setLoading(true);
         try {
             const [entitiesRes, sourcesRes] = await Promise.all([
-                axios.get('http://localhost:8000/api/entities'),
+                axios.get('http://localhost:8000/api/entities?include_ignored=true'),
                 axios.get('http://localhost:8000/api/sources')
             ]);
             setEntities(entitiesRes.data);
@@ -105,6 +106,17 @@ const Entities = () => {
         }));
     };
 
+    const handleToggleIgnore = async (id) => {
+        try {
+            await axios.put(`http://localhost:8000/api/entities/${id}/ignore`);
+            addToast('Estado de entidad actualizado', 'success');
+            fetchData();
+        } catch (error) {
+            console.error('Error toggling ignore:', error);
+            addToast('Error al actualizar entidad', 'error');
+        }
+    };
+
     const getTypeDetails = (typeId) => ENTITY_TYPES.find(t => t.id === typeId) || ENTITY_TYPES[0];
 
     return (
@@ -128,6 +140,30 @@ const Entities = () => {
                 </button>
             </div>
 
+            {/* Tabs */}
+            <div className="flex gap-2 mb-6">
+                <button
+                    onClick={() => setActiveTab('active')}
+                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === 'active'
+                        ? 'bg-indigo-600 text-white'
+                        : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                        }`}
+                >
+                    <Eye className="inline w-4 h-4 mr-2" />
+                    Activas ({entities.filter(e => !e.is_ignored).length})
+                </button>
+                <button
+                    onClick={() => setActiveTab('ignored')}
+                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === 'ignored'
+                        ? 'bg-indigo-600 text-white'
+                        : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                        }`}
+                >
+                    <EyeOff className="inline w-4 h-4 mr-2" />
+                    Ignoradas ({entities.filter(e => e.is_ignored).length})
+                </button>
+            </div>
+
             {/* Entities Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {loading ? (
@@ -148,187 +184,205 @@ const Entities = () => {
                         </button>
                     </div>
                 ) : (
-                    entities.map((entity) => {
-                        const typeDetails = getTypeDetails(entity.type);
-                        const Icon = typeDetails.icon;
-                        return (
-                            <div
-                                key={entity.id}
-                                className="group bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 p-4 hover:shadow-lg hover:shadow-indigo-500/5 transition-all relative overflow-hidden flex flex-col justify-center"
-                                style={{ minHeight: '160px' }}
-                            >
-                                <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <button
-                                        onClick={() => handleEdit(entity)}
-                                        className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors"
-                                    >
-                                        <Pencil size={14} />
-                                    </button>
-                                    <button
-                                        onClick={() => handleDelete(entity.id)}
-                                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
-                                    >
-                                        <Trash2 size={14} />
-                                    </button>
-                                </div>
-
-                                <h3 className="text-base font-bold text-gray-900 dark:text-white truncate pr-14 mb-3" title={entity.name}>
-                                    {entity.name}
-                                </h3>
-
-                                <div className="flex items-center justify-between mb-3">
-                                    <div className="flex items-center gap-1.5">
-                                        <Icon className={`w-4 h-4 ${typeDetails.color}`} />
-                                        <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${typeDetails.bgColor} ${typeDetails.color}`}>
-                                            {typeDetails.name}
-                                        </span>
+                    entities
+                        .filter(e => activeTab === 'active' ? !e.is_ignored : e.is_ignored)
+                        .map((entity) => {
+                            const typeDetails = getTypeDetails(entity.type);
+                            const Icon = typeDetails.icon;
+                            return (
+                                <div
+                                    key={entity.id}
+                                    className={`group bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 p-4 hover:shadow-lg hover:shadow-indigo-500/5 transition-all relative overflow-hidden flex flex-col justify-center ${entity.is_ignored ? 'opacity-60' : ''
+                                        }`}
+                                    style={{ minHeight: '160px' }}
+                                >
+                                    <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <button
+                                            onClick={() => handleToggleIgnore(entity.id)}
+                                            className={`p-1.5 rounded-lg transition-colors ${entity.is_ignored
+                                                    ? 'text-gray-400 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30'
+                                                    : 'text-gray-400 hover:text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900/30'
+                                                }`}
+                                            title={entity.is_ignored ? 'Activar' : 'Ignorar'}
+                                        >
+                                            {entity.is_ignored ? <Eye size={14} /> : <EyeOff size={14} />}
+                                        </button>
+                                        <button
+                                            onClick={() => handleEdit(entity)}
+                                            className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors"
+                                        >
+                                            <Pencil size={14} />
+                                        </button>
+                                        <button
+                                            onClick={() => handleDelete(entity.id)}
+                                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                                        >
+                                            <Trash2 size={14} />
+                                        </button>
                                     </div>
 
-                                    {entity.sources.length > 0 && (
-                                        <span className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-bold text-gray-500 dark:text-gray-400">
-                                            <Link2 size={12} />
-                                            {entity.sources.length} Fuentes
-                                        </span>
-                                    )}
-                                </div>
+                                    <h3 className={`text-base font-bold truncate pr-14 mb-3 ${entity.is_ignored ? 'line-through text-gray-400 dark:text-gray-500' : 'text-gray-900 dark:text-white'
+                                        }`} title={entity.name}>
+                                        {entity.name}
+                                    </h3>
 
-                                <p className="text-xs text-gray-500 dark:text-gray-400 mb-3 line-clamp-1 italic">
-                                    {entity.description || 'Sin descripción disponible.'}
-                                </p>
-
-                                {entity.sources.length > 0 && (
-                                    <div className="pt-3 border-t border-gray-50 dark:border-gray-700/50">
-                                        <div className="flex flex-wrap gap-1">
-                                            {entity.sources.slice(0, 2).map(source => (
-                                                <span key={source.id} className="text-[9px] px-1.5 py-0.5 bg-gray-50 dark:bg-gray-900 text-gray-500 rounded border border-gray-100 dark:border-gray-800 truncate max-w-[80px]">
-                                                    {source.name}
-                                                </span>
-                                            ))}
-                                            {entity.sources.length > 2 && (
-                                                <span className="text-[9px] px-1.5 py-0.5 text-gray-400">
-                                                    +{entity.sources.length - 2}
-                                                </span>
-                                            )}
+                                    <div className="flex items-center justify-between mb-3">
+                                        <div className="flex items-center gap-1.5">
+                                            <Icon className={`w-4 h-4 ${typeDetails.color}`} />
+                                            <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${typeDetails.bgColor} ${typeDetails.color}`}>
+                                                {typeDetails.name}
+                                            </span>
                                         </div>
+
+                                        {entity.sources.length > 0 && (
+                                            <span className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-bold text-gray-500 dark:text-gray-400">
+                                                <Link2 size={12} />
+                                                {entity.sources.length} Fuentes
+                                            </span>
+                                        )}
                                     </div>
-                                )}
-                            </div>
-                        );
-                    })
+
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-3 line-clamp-1 italic">
+                                        {entity.description || 'Sin descripción disponible.'}
+                                    </p>
+
+                                    {
+                                        entity.sources.length > 0 && (
+                                            <div className="pt-3 border-t border-gray-50 dark:border-gray-700/50">
+                                                <div className="flex flex-wrap gap-1">
+                                                    {entity.sources.slice(0, 2).map(source => (
+                                                        <span key={source.id} className="text-[9px] px-1.5 py-0.5 bg-gray-50 dark:bg-gray-900 text-gray-500 rounded border border-gray-100 dark:border-gray-800 truncate max-w-[80px]">
+                                                            {source.name}
+                                                        </span>
+                                                    ))}
+                                                    {entity.sources.length > 2 && (
+                                                        <span className="text-[9px] px-1.5 py-0.5 text-gray-400">
+                                                            +{entity.sources.length - 2}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )
+                                    }
+                                </div>
+                            );
+                        })
                 )}
             </div>
 
             {/* Modal */}
-            {isModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div className="bg-white dark:bg-gray-800 w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 border border-white/10">
-                        <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
-                            <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-                                {editingId ? 'Editar Entidad' : 'Nueva Entidad'}
-                            </h2>
-                            <button
-                                onClick={resetForm}
-                                className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-full transition-colors"
-                            >
-                                <X size={24} />
-                            </button>
-                        </div>
-
-                        <form onSubmit={handleSubmit} className="p-8 space-y-6 max-h-[80vh] overflow-y-auto">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="space-y-4">
-                                    <div>
-                                        <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Nombre</label>
-                                        <input
-                                            type="text"
-                                            value={formData.name}
-                                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                            required
-                                            className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all text-gray-900 dark:text-white"
-                                            placeholder="Nombre de la entidad"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Tipo</label>
-                                        <select
-                                            value={formData.type}
-                                            onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                                            className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all text-gray-900 dark:text-white"
-                                        >
-                                            {ENTITY_TYPES.map(type => (
-                                                <option key={type.id} value={type.id}>{type.name}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Descripción</label>
-                                        <textarea
-                                            value={formData.description}
-                                            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                                            rows="4"
-                                            className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all text-gray-900 dark:text-white resize-none"
-                                            placeholder="Detalles sobre esta entidad..."
-                                        ></textarea>
-                                    </div>
-                                </div>
-
-                                <div className="space-y-4">
-                                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
-                                        <Link2 size={16} className="text-indigo-500" />
-                                        Vincular Fuentes
-                                    </label>
-                                    <div className="bg-gray-50 dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 p-4 space-y-2 h-[260px] overflow-y-auto">
-                                        {sources.length === 0 ? (
-                                            <p className="text-xs text-center text-gray-400 mt-10">No hay fuentes disponibles para vincular.</p>
-                                        ) : (
-                                            sources.map(source => (
-                                                <button
-                                                    key={source.id}
-                                                    type="button"
-                                                    onClick={() => toggleSourceLink(source.id)}
-                                                    className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all ${formData.source_ids.includes(source.id)
-                                                        ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300'
-                                                        : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-indigo-200'
-                                                        }`}
-                                                >
-                                                    <span className="text-xs font-medium truncate pr-4">{source.name}</span>
-                                                    {formData.source_ids.includes(source.id) ? (
-                                                        <CheckCircle2 size={14} className="shrink-0" />
-                                                    ) : (
-                                                        <div className="w-3.5 h-3.5 rounded-full border border-gray-300 dark:border-gray-600 shrink-0"></div>
-                                                    )}
-                                                </button>
-                                            ))
-                                        )}
-                                    </div>
-                                    <p className="text-[10px] text-gray-400 flex items-center gap-1.5 px-2">
-                                        <Info size={12} />
-                                        Vincular fuentes ayuda al sistema a contextualizar la información.
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div className="flex justify-end gap-3 pt-6 border-t border-gray-100 dark:border-gray-700">
+            {
+                isModalOpen && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+                        <div className="bg-white dark:bg-gray-800 w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 border border-white/10">
+                            <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                                <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                                    {editingId ? 'Editar Entidad' : 'Nueva Entidad'}
+                                </h2>
                                 <button
-                                    type="button"
                                     onClick={resetForm}
-                                    className="px-6 py-2.5 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors font-medium"
+                                    className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-full transition-colors"
                                 >
-                                    Cancelar
-                                </button>
-                                <button
-                                    type="submit"
-                                    className="px-8 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-lg shadow-indigo-500/20 transition-all flex items-center gap-2"
-                                >
-                                    {editingId ? <CheckCircle2 size={20} /> : <Plus size={20} />}
-                                    {editingId ? 'Guardar Cambios' : 'Crear Entidad'}
+                                    <X size={24} />
                                 </button>
                             </div>
-                        </form>
+
+                            <form onSubmit={handleSubmit} className="p-8 space-y-6 max-h-[80vh] overflow-y-auto">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Nombre</label>
+                                            <input
+                                                type="text"
+                                                value={formData.name}
+                                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                                required
+                                                className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all text-gray-900 dark:text-white"
+                                                placeholder="Nombre de la entidad"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Tipo</label>
+                                            <select
+                                                value={formData.type}
+                                                onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                                                className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all text-gray-900 dark:text-white"
+                                            >
+                                                {ENTITY_TYPES.map(type => (
+                                                    <option key={type.id} value={type.id}>{type.name}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Descripción</label>
+                                            <textarea
+                                                value={formData.description}
+                                                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                                                rows="4"
+                                                className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all text-gray-900 dark:text-white resize-none"
+                                                placeholder="Detalles sobre esta entidad..."
+                                            ></textarea>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-4">
+                                        <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+                                            <Link2 size={16} className="text-indigo-500" />
+                                            Vincular Fuentes
+                                        </label>
+                                        <div className="bg-gray-50 dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 p-4 space-y-2 h-[260px] overflow-y-auto">
+                                            {sources.length === 0 ? (
+                                                <p className="text-xs text-center text-gray-400 mt-10">No hay fuentes disponibles para vincular.</p>
+                                            ) : (
+                                                sources.map(source => (
+                                                    <button
+                                                        key={source.id}
+                                                        type="button"
+                                                        onClick={() => toggleSourceLink(source.id)}
+                                                        className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all ${formData.source_ids.includes(source.id)
+                                                            ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300'
+                                                            : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-indigo-200'
+                                                            }`}
+                                                    >
+                                                        <span className="text-xs font-medium truncate pr-4">{source.name}</span>
+                                                        {formData.source_ids.includes(source.id) ? (
+                                                            <CheckCircle2 size={14} className="shrink-0" />
+                                                        ) : (
+                                                            <div className="w-3.5 h-3.5 rounded-full border border-gray-300 dark:border-gray-600 shrink-0"></div>
+                                                        )}
+                                                    </button>
+                                                ))
+                                            )}
+                                        </div>
+                                        <p className="text-[10px] text-gray-400 flex items-center gap-1.5 px-2">
+                                            <Info size={12} />
+                                            Vincular fuentes ayuda al sistema a contextualizar la información.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="flex justify-end gap-3 pt-6 border-t border-gray-100 dark:border-gray-700">
+                                    <button
+                                        type="button"
+                                        onClick={resetForm}
+                                        className="px-6 py-2.5 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors font-medium"
+                                    >
+                                        Cancelar
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        className="px-8 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-lg shadow-indigo-500/20 transition-all flex items-center gap-2"
+                                    >
+                                        {editingId ? <CheckCircle2 size={20} /> : <Plus size={20} />}
+                                        {editingId ? 'Guardar Cambios' : 'Crear Entidad'}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 };
 

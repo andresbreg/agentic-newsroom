@@ -1,15 +1,18 @@
-from fastapi import FastAPI, Depends, HTTPException
+from dotenv import load_dotenv
+load_dotenv()
+
+from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session, joinedload
 from typing import List
+import time
 
 import models
 import schemas
-import scraper
 from database import SessionLocal, engine
-from ai_agent import AIAgent
 from sqlalchemy import text
 from datetime import datetime
+from services import ingestor, translator, extractor
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -22,9 +25,6 @@ def run_migrations():
         # so we try-except.
         # List of columns to check and adding if missing
         columns = [
-            ("ai_score", "INTEGER"),
-            ("ai_explanation", "VARCHAR"),
-            ("ai_category", "VARCHAR"),
             ("language", "VARCHAR"),
             ("content_snippet", "TEXT")
         ]
@@ -125,13 +125,60 @@ async def root():
     return {"message": "Agentic Newsroom Backend is running"}
 
 @app.post("/api/scan")
-def scan_sources(db: Session = Depends(get_db)):
-    count, new_ids = scraper.scan_rss_sources(db)
+def scan_sources(background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    # Step 1: Ingest RSS feeds (no translation)
+    count, new_ids = ingestor.process_feeds(db)
+    
+    if new_ids:
+        # Trigger full processing pipeline in background
+        background_tasks.add_task(run_full_pipeline, new_ids)
+    
     return {"new_items": count, "new_item_ids": new_ids}
+
+def run_full_pipeline(new_item_ids: List[int]):
+    """
+    Orchestrates the full processing pipeline:
+    1. Translate new items
+    2. Extract entities from translated items
+    """
+    print(f"[PIPELINE] Starting processing for {len(new_item_ids)} new items")
+    
+    # Run Translation
+    auto_translate_background(new_item_ids)
+    
+    # Run Extraction (will pick up the just-translated items)
+    auto_extract_entities_background()
+    
+    print("[PIPELINE] Processing complete")
+
+def auto_translate_background(new_item_ids: List[int]):
+    """Helper to translate items."""
+    db = SessionLocal()
+    try:
+        count = translator.process_pending_translations(db, new_item_ids)
+        print(f"[Background] Translated {count} items to Spanish")
+    except Exception as e:
+        print(f"[Background] Error during translation: {e}")
+    finally:
+        db.close()
+
+def auto_extract_entities_background():
+    """Helper to extract entities."""
+    db = SessionLocal()
+    try:
+        count = extractor.process_pending_entities(db)
+        print(f"[Background] Extracted entities from {count} items")
+    except Exception as e:
+        print(f"[Background] Error during entity extraction: {e}")
+    finally:
+        db.close()
 
 @app.get("/api/news/discovered", response_model=List[schemas.NewsItemResponse])
 def get_discovered_news(db: Session = Depends(get_db)):
-    return db.query(models.NewsItem).options(joinedload(models.NewsItem.source)).filter(models.NewsItem.status == "DISCOVERED").order_by(models.NewsItem.published_date.desc()).all()
+    return db.query(models.NewsItem).options(
+        joinedload(models.NewsItem.source),
+        joinedload(models.NewsItem.entities)
+    ).filter(models.NewsItem.status == "DISCOVERED").order_by(models.NewsItem.published_date.desc()).all()
 
 @app.put("/api/news/{news_id}/status", response_model=schemas.NewsItemResponse)
 def update_news_status(news_id: int, status_update: schemas.NewsItemStatusUpdate, db: Session = Depends(get_db)):
@@ -146,11 +193,17 @@ def update_news_status(news_id: int, status_update: schemas.NewsItemStatusUpdate
 
 @app.get("/api/news/approved", response_model=List[schemas.NewsItemResponse])
 def get_approved_news(db: Session = Depends(get_db)):
-    return db.query(models.NewsItem).options(joinedload(models.NewsItem.source)).filter(models.NewsItem.status == "APPROVED").order_by(models.NewsItem.published_date.desc()).all()
+    return db.query(models.NewsItem).options(
+        joinedload(models.NewsItem.source),
+        joinedload(models.NewsItem.entities)
+    ).filter(models.NewsItem.status == 'APPROVED').order_by(models.NewsItem.published_date.desc()).all()
 
 @app.get("/api/news/rejected", response_model=List[schemas.NewsItemResponse])
 def get_rejected_news(db: Session = Depends(get_db)):
-    return db.query(models.NewsItem).options(joinedload(models.NewsItem.source)).filter(models.NewsItem.status == "REJECTED").order_by(models.NewsItem.published_date.desc()).all()
+    return db.query(models.NewsItem).options(
+        joinedload(models.NewsItem.source),
+        joinedload(models.NewsItem.entities)
+    ).filter(models.NewsItem.status == 'REJECTED').order_by(models.NewsItem.published_date.desc()).all()
 
 @app.delete("/api/news/{news_id}")
 def delete_news_item(news_id: int, db: Session = Depends(get_db)):
@@ -266,18 +319,18 @@ def update_topic(topic_id: int, topic: schemas.InterestTopicCreate, db: Session 
     db.commit()
     return {"ok": True}
 
-@app.post("/api/analyze")
-def analyze_news(db: Session = Depends(get_db)):
-    # Fetch pending items (DISCOVERED and no score yet)
-    pending_items = db.query(models.NewsItem).filter(
-        models.NewsItem.status == 'DISCOVERED',
-        models.NewsItem.ai_score == None
-    ).limit(5).all() # Batch size 20 to respect rate limits
-    
-    agent = AIAgent(db)
-    count = agent.analyze_batch(pending_items)
-    
-    return {"analyzed_count": count}
+
+@app.post("/api/extract-entities")
+def extract_entities(db: Session = Depends(get_db)):
+    """
+    Manual trigger for entity extraction.
+    Uses the new Extractor service with Groq (Spanish).
+    """
+    try:
+        count = extractor.process_pending_entities(db)
+        return {"extracted_count": count}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 # Tag Endpoints
 
@@ -327,8 +380,13 @@ def delete_tag(tag_id: int, db: Session = Depends(get_db)):
 # Entity Endpoints
 
 @app.get("/api/entities", response_model=List[schemas.EntityResponse])
-def read_entities(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    entities = db.query(models.Entity).options(joinedload(models.Entity.sources)).offset(skip).limit(limit).all()
+def read_entities(skip: int = 0, limit: int = 100, include_ignored: bool = False, db: Session = Depends(get_db)):
+    query = db.query(models.Entity).options(joinedload(models.Entity.sources))
+    
+    if not include_ignored:
+        query = query.filter(models.Entity.is_ignored == False)
+    
+    entities = query.offset(skip).limit(limit).all()
     return entities
 
 @app.post("/api/entities", response_model=schemas.EntityResponse)
@@ -382,6 +440,19 @@ def delete_entity(entity_id: int, db: Session = Depends(get_db)):
     db.delete(db_entity)
     db.commit()
     return {"ok": True}
+
+@app.put("/api/entities/{entity_id}/ignore")
+def toggle_ignore_entity(entity_id: int, db: Session = Depends(get_db)):
+    db_entity = db.query(models.Entity).filter(models.Entity.id == entity_id).first()
+    if db_entity is None:
+        raise HTTPException(status_code=404, detail="Entity not found")
+    
+    # Toggle the is_ignored status
+    db_entity.is_ignored = not db_entity.is_ignored
+    db.commit()
+    db.refresh(db_entity)
+    
+    return {"ok": True, "is_ignored": db_entity.is_ignored}
 
 # --- System Backup & Restore ---
 

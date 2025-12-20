@@ -76,7 +76,7 @@ const Reader = ({ item, onClose, onNext, onPrev, hasNext, hasPrev }) => {
                 <div className="flex-1 overflow-y-auto p-8 sm:p-10 rounded-b-2xl">
                     <div className="prose prose-slate dark:prose-invert max-w-none">
                         <p className="text-gray-700 dark:text-gray-200 leading-relaxed text-lg whitespace-pre-wrap font-serif">
-                            {item.content_snippet || "No hay contenido disponible para esta noticia."}
+                            {item.content_es || item.content_snippet || "No hay contenido disponible para esta noticia."}
                         </p>
                     </div>
                 </div>
