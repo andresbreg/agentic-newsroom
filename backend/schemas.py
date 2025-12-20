@@ -66,6 +66,7 @@ class NewsItemResponse(NewsItemBase):
     ai_score: Optional[int] = None
     ai_explanation: Optional[str] = None
     ai_category: Optional[str] = None
+    language: Optional[str] = None
     tags: List[TagResponse] = []
 
     class Config:

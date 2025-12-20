@@ -19,14 +19,26 @@ def run_migrations():
         # Check if column exists by trying to select it. If error, add it.
         # SQLite doesn't support IF NOT EXISTS in ALTER TABLE ADD COLUMN directly in all versions/drivers nicely,
         # so we try-except.
-        try:
-            db.execute(text("SELECT ai_score FROM news_items LIMIT 1"))
-        except Exception:
-            db.rollback()
-            db.execute(text("ALTER TABLE news_items ADD COLUMN ai_score INTEGER"))
-            db.execute(text("ALTER TABLE news_items ADD COLUMN ai_explanation VARCHAR"))
-            db.execute(text("ALTER TABLE news_items ADD COLUMN ai_category VARCHAR"))
-            db.commit()
+        # List of columns to check and adding if missing
+        columns = [
+            ("ai_score", "INTEGER"),
+            ("ai_explanation", "VARCHAR"),
+            ("ai_category", "VARCHAR"),
+            ("language", "VARCHAR")
+        ]
+        
+        for col_name, col_type in columns:
+            try:
+                db.execute(text(f"SELECT {col_name} FROM news_items LIMIT 1"))
+            except Exception:
+                db.rollback()
+                try:
+                    db.execute(text(f"ALTER TABLE news_items ADD COLUMN {col_name} {col_type}"))
+                    db.commit()
+                    print(f"Migration: Added column {col_name}")
+                except Exception as e:
+                    db.rollback()
+                    print(f"Migration error adding {col_name}: {e}")
     except Exception as e:
         print(f"Migration warning: {e}")
     finally:
@@ -117,7 +129,7 @@ def scan_sources(db: Session = Depends(get_db)):
 
 @app.get("/api/news/discovered", response_model=List[schemas.NewsItemResponse])
 def get_discovered_news(db: Session = Depends(get_db)):
-    return db.query(models.NewsItem).options(joinedload(models.NewsItem.source)).filter(models.NewsItem.status == "DISCOVERED").order_by(models.NewsItem.id.desc()).all()
+    return db.query(models.NewsItem).options(joinedload(models.NewsItem.source)).filter(models.NewsItem.status == "DISCOVERED").order_by(models.NewsItem.published_date.desc()).all()
 
 @app.put("/api/news/{news_id}/status", response_model=schemas.NewsItemResponse)
 def update_news_status(news_id: int, status_update: schemas.NewsItemStatusUpdate, db: Session = Depends(get_db)):
@@ -132,11 +144,11 @@ def update_news_status(news_id: int, status_update: schemas.NewsItemStatusUpdate
 
 @app.get("/api/news/approved", response_model=List[schemas.NewsItemResponse])
 def get_approved_news(db: Session = Depends(get_db)):
-    return db.query(models.NewsItem).options(joinedload(models.NewsItem.source)).filter(models.NewsItem.status == "APPROVED").order_by(models.NewsItem.id.desc()).all()
+    return db.query(models.NewsItem).options(joinedload(models.NewsItem.source)).filter(models.NewsItem.status == "APPROVED").order_by(models.NewsItem.published_date.desc()).all()
 
 @app.get("/api/news/rejected", response_model=List[schemas.NewsItemResponse])
 def get_rejected_news(db: Session = Depends(get_db)):
-    return db.query(models.NewsItem).options(joinedload(models.NewsItem.source)).filter(models.NewsItem.status == "REJECTED").order_by(models.NewsItem.id.desc()).all()
+    return db.query(models.NewsItem).options(joinedload(models.NewsItem.source)).filter(models.NewsItem.status == "REJECTED").order_by(models.NewsItem.published_date.desc()).all()
 
 @app.delete("/api/news/{news_id}")
 def delete_news_item(news_id: int, db: Session = Depends(get_db)):

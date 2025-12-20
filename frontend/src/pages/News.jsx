@@ -273,27 +273,31 @@ const News = () => {
                         <table className="w-full text-left text-sm">
                             <thead className="bg-gray-50 dark:bg-gray-900/50 text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700">
                                 <tr>
-                                    <th className="px-4 py-3 w-10">
+                                    <th className="px-2 py-3 font-medium w-8 text-center text-gray-400">#</th>
+                                    <th className="px-4 py-3 font-medium w-10 text-gray-400">
                                         <button
                                             onClick={toggleSelectAll}
-                                            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+                                            className="hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
                                         >
                                             {selectedItems.size === filteredNews.length && filteredNews.length > 0 ? (
-                                                <CheckSquare size={20} className="text-indigo-600" />
+                                                <CheckSquare size={18} className="text-indigo-600" />
                                             ) : (
-                                                <Square size={20} />
+                                                <Square size={18} />
                                             )}
                                         </button>
                                     </th>
-                                    <th className="px-4 py-3 font-medium w-32">Fecha</th>
-                                    <th className="px-4 py-3 font-medium w-24">Fuente</th>
-                                    <th className="px-4 py-3 font-medium w-32">Relevancia</th>
+                                    <th className="px-4 py-3 font-medium w-24">Fecha</th>
+                                    <th className="px-4 py-3 font-medium w-20">Fuente</th>
+                                    <th className="px-4 py-3 font-medium w-16 text-center">IDM</th>
+                                    <th className="px-2 py-3 font-medium w-10 text-center" title="Relevancia IA">
+                                        <Sparkles size={16} className="mx-auto" />
+                                    </th>
                                     <th className="px-4 py-3 font-medium">Título</th>
-                                    <th className="px-4 py-3 font-medium w-32 text-right">Acciones</th>
+                                    <th className="px-4 py-3 font-medium w-28 text-right">Acciones</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                                {filteredNews.map((item) => (
+                                {filteredNews.map((item, index) => (
                                     <tr
                                         key={item.id}
                                         className={`
@@ -303,73 +307,82 @@ const News = () => {
                                             ${highlights.dashboard.has(item.id) ? 'bg-blue-50 dark:bg-blue-900/20' : ''}
                                         `}
                                     >
+                                        <td className="px-2 py-3 text-center text-[10px] text-gray-400 font-mono">
+                                            {index + 1}
+                                        </td>
                                         <td className="px-4 py-3">
                                             <button
                                                 onClick={() => toggleSelectItem(item.id)}
                                                 className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
                                             >
                                                 {selectedItems.has(item.id) ? (
-                                                    <CheckSquare size={20} className="text-indigo-600" />
+                                                    <CheckSquare size={18} className="text-indigo-600" />
                                                 ) : (
-                                                    <Square size={20} />
+                                                    <Square size={18} />
                                                 )}
                                             </button>
                                         </td>
-                                        <td className="px-4 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                                        <td className="px-4 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap text-xs">
                                             {new Date(item.published_date).toLocaleDateString()}
                                         </td>
                                         <td className="px-4 py-3">
-                                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+                                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
                                                 {item.source ? item.source.name : 'Fuente'}
                                             </span>
                                         </td>
-                                        <td className="px-4 py-3">
+                                        <td className="px-4 py-3 text-center">
+                                            {item.language ? (
+                                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 uppercase tracking-tight">
+                                                    {item.language}
+                                                </span>
+                                            ) : (
+                                                <span className="text-gray-400 text-[10px]">-</span>
+                                            )}
+                                        </td>
+                                        <td className="px-2 py-3 text-center">
                                             {item.ai_score !== null ? (
-                                                <span
-                                                    title={item.ai_explanation}
-                                                    className={`cursor-help inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${item.ai_score >= 70 ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' :
+                                                <div
+                                                    title={`${item.ai_category || 'Análisis'}: ${item.ai_score}/100\n${item.ai_explanation || ''}`}
+                                                    className={`w-6 h-6 mx-auto rounded-full flex items-center justify-center text-[10px] font-bold cursor-help ${item.ai_score >= 70 ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' :
                                                             item.ai_score >= 30 ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300' :
                                                                 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
                                                         }`}
                                                 >
-                                                    {item.ai_category || (item.ai_score >= 70 ? 'Alta Prioridad' : item.ai_score >= 30 ? 'Interés General' : 'Irrelevante')}
-                                                    <span className="ml-1 opacity-75">({item.ai_score})</span>
-                                                </span>
+                                                    {item.ai_score}
+                                                </div>
                                             ) : (
-                                                <span className="text-gray-400 text-xs">-</span>
+                                                <span className="text-gray-300 text-[10px]">-</span>
                                             )}
                                         </td>
-                                        <td className="px-4 py-3">
-                                            <div className="flex items-center gap-2">
-                                                <span className="font-medium text-gray-900 dark:text-white line-clamp-1">
-                                                    {item.title}
-                                                </span>
-                                            </div>
+                                        <td className="px-4 py-3 text-gray-900 dark:text-white">
+                                            <span className="font-medium line-clamp-1 text-sm">
+                                                {item.title}
+                                            </span>
                                         </td>
                                         <td className="px-4 py-3 text-right">
-                                            <div className="flex justify-end gap-2">
+                                            <div className="flex justify-end gap-1">
                                                 <a
                                                     href={item.url}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
-                                                    className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-md transition-colors"
+                                                    className="p-1 text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-md transition-colors"
                                                     title="Ver original"
                                                 >
-                                                    <ExternalLink size={20} />
+                                                    <ExternalLink size={18} />
                                                 </a>
                                                 <button
                                                     onClick={() => updateStatus(item.id, 'APPROVED')}
-                                                    className="p-1.5 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-md transition-colors"
+                                                    className="p-1 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-md transition-colors"
                                                     title="Aprobar"
                                                 >
-                                                    <CheckCircle size={20} />
+                                                    <CheckCircle size={18} />
                                                 </button>
                                                 <button
                                                     onClick={() => updateStatus(item.id, 'REJECTED')}
-                                                    className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors"
+                                                    className="p-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors"
                                                     title="Descartar"
                                                 >
-                                                    <Trash2 size={20} />
+                                                    <Trash2 size={18} />
                                                 </button>
                                             </div>
                                         </td>
