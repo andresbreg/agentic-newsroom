@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, FileText, Settings, Sun, Moon, ChevronLeft, ChevronRight, Wifi, WifiOff, Newspaper, Bot, Trash2, Rss, Target, Tag, Database } from 'lucide-react';
+import { LayoutDashboard, FileText, Settings as GearIcon, Sun, Moon, ChevronLeft, ChevronRight, Wifi, WifiOff, Newspaper, Bot, Trash2, Rss, Target, Tag, Database } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { cn } from '../lib/utils';
 
@@ -43,7 +43,7 @@ const Sidebar = ({ collapsed, setCollapsed }) => {
             <Icon size={20} className="shrink-0" />
             <span
                 className={cn(
-                    "whitespace-nowrap overflow-hidden transition-all duration-300",
+                    "whitespace-nowrap overflow-hidden transition-all duration-300 text-base font-medium",
                     collapsed ? "w-0 opacity-0" : "w-auto opacity-100"
                 )}
             >
@@ -61,7 +61,7 @@ const Sidebar = ({ collapsed, setCollapsed }) => {
         <aside
             className={cn(
                 "h-screen bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 flex flex-col transition-all duration-300 relative",
-                collapsed ? "w-16" : "w-64"
+                collapsed ? "w-16" : "w-60"
             )}
         >
             {/* Header */}
@@ -73,7 +73,7 @@ const Sidebar = ({ collapsed, setCollapsed }) => {
                     <span
                         className={cn(
                             "font-bold text-lg text-gray-800 dark:text-white whitespace-nowrap transition-all duration-300",
-                            collapsed ? "w-0 opacity-0" : "w-auto opacity-100"
+                            collapsed ? "w-0 opacity-0 " : "w-auto opacity-100"
                         )}
                     >
                         Central de Noticias
@@ -90,7 +90,7 @@ const Sidebar = ({ collapsed, setCollapsed }) => {
             </button>
 
             {/* Navigation */}
-            <nav className="flex-1 p-2 space-y-1 mt-4">
+            <nav className="flex-1 p-2 space-y-1 mt-4 overflow-y-auto">
                 <NavItem to="/topics" icon={Target} label="Temas" />
                 <NavItem to="/tags" icon={Tag} label="Etiquetas" />
                 <NavItem to="/entities" icon={Database} label="Entidades" />
@@ -98,42 +98,58 @@ const Sidebar = ({ collapsed, setCollapsed }) => {
                 <NavItem to="/" icon={LayoutDashboard} label="Noticias" />
                 <NavItem to="/newsroom" icon={FileText} label="Redacción" />
                 <NavItem to="/ai-config" icon={Bot} label="Agente IA" />
-                <NavItem to="/trash" icon={Trash2} label="Papelera" />
             </nav>
 
             {/* Footer */}
-            <div className="p-4 border-t border-gray-100 dark:border-gray-800 space-y-4">
-                <button
-                    onClick={toggleTheme}
-                    className={cn(
-                        "flex items-center gap-3 w-full p-2 rounded-md transition-colors duration-200 text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800",
-                        collapsed && "justify-center"
-                    )}
-                    title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-                >
-                    {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
-                    <span
-                        className={cn(
-                            "whitespace-nowrap overflow-hidden transition-all duration-300",
-                            collapsed ? "w-0 opacity-0 hidden" : "w-auto opacity-100"
-                        )}
+            <div className="p-2 border-t border-gray-100 dark:border-gray-800 space-y-3 pb-4">
+                {/* Utilities Row: Theme, Trash, Settings (Icons only, centered) */}
+                <div className="flex items-center justify-center gap-4 py-2">
+                    <button
+                        onClick={toggleTheme}
+                        className="text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 transition-colors"
+                        title={theme === 'dark' ? 'Modo Claro' : 'Modo Oscuro'}
                     >
-                        {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
-                    </span>
-                </button>
+                        {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+                    </button>
 
+                    <NavLink
+                        to="/trash"
+                        className={({ isActive }) => cn(
+                            "transition-colors",
+                            isActive
+                                ? "text-red-600 dark:text-red-400"
+                                : "text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400"
+                        )}
+                        title="Papelera"
+                    >
+                        <Trash2 size={18} />
+                    </NavLink>
+
+                    <NavLink
+                        to="/settings"
+                        className={({ isActive }) => cn(
+                            "transition-colors",
+                            isActive
+                                ? "text-slate-900 dark:text-white"
+                                : "text-gray-500 hover:text-slate-900 dark:text-gray-400 dark:hover:text-white"
+                        )}
+                        title="Ajustes"
+                    >
+                        <GearIcon size={18} />
+                    </NavLink>
+                </div>
+
+                {/* Status Row (Centered Row) */}
                 <div className={cn(
-                    "flex items-center gap-2 text-xs px-2 transition-colors duration-300",
-                    isBackendUp ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400",
-                    collapsed && "justify-center"
+                    "flex items-center justify-center gap-2 transition-colors duration-300",
+                    isBackendUp ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
                 )}>
-                    {isBackendUp ? <Wifi size={16} /> : <WifiOff size={16} />}
-                    <span className={cn(
-                        "whitespace-nowrap overflow-hidden transition-all duration-300",
-                        collapsed ? "w-0 opacity-0 hidden" : "w-auto opacity-100"
-                    )}>
-                        {isBackendUp ? "Backend Conectado" : "Backend Desconectado"}
-                    </span>
+                    {isBackendUp ? <Wifi size={14} /> : <WifiOff size={14} />}
+                    {!collapsed && (
+                        <span className="text-[9px] whitespace-nowrap overflow-hidden transition-all duration-300 font-bold tracking-wider">
+                            {isBackendUp ? "SISTEMA ONLINE" : "SISTEMA OFFLINE"}
+                        </span>
+                    )}
                 </div>
             </div>
         </aside>

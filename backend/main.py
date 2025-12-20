@@ -9,6 +9,7 @@ import scraper
 from database import SessionLocal, engine
 from ai_agent import AIAgent
 from sqlalchemy import text
+from datetime import datetime
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -381,3 +382,169 @@ def delete_entity(entity_id: int, db: Session = Depends(get_db)):
     db.delete(db_entity)
     db.commit()
     return {"ok": True}
+
+# --- System Backup & Restore ---
+
+@app.get("/api/system/export")
+def export_system(db: Session = Depends(get_db)):
+    """Export configuration tables: Source, InterestTopic, Entity, Tag, AgentConfig"""
+    try:
+        sources = db.query(models.Source).all()
+        topics = db.query(models.InterestTopic).all()
+        entities = db.query(models.Entity).options(joinedload(models.Entity.sources)).all()
+        tags = db.query(models.Tag).all()
+        configs = db.query(models.AgentConfig).all()
+        
+        # Format sources
+        sources_data = []
+        for s in sources:
+            sources_data.append({
+                "id": s.id,
+                "name": s.name,
+                "type": s.type,
+                "subtype": s.subtype,
+                "config": s.config,
+                "icon": s.icon,
+                "health_status": s.health_status,
+                "active": s.active
+            })
+            
+        # Format entities and their relationship to sources
+        entities_data = []
+        for e in entities:
+            entities_data.append({
+                "id": e.id,
+                "name": e.name,
+                "type": e.type,
+                "description": e.description,
+                "source_ids": [s.id for s in e.sources]
+            })
+            
+        # Format tags
+        tags_data = []
+        for t in tags:
+            tags_data.append({
+                "id": t.id,
+                "name": t.name,
+                "color": t.color,
+                "description": t.description
+            })
+            
+        # Format topics
+        topics_data = []
+        for it in topics:
+            topics_data.append({
+                "id": it.id,
+                "subject": it.subject,
+                "scope": it.scope,
+                "keywords": it.keywords,
+                "exclusions": it.exclusions,
+                "relevance_level": it.relevance_level,
+                "context_tags": it.context_tags
+            })
+            
+        # Format configs
+        configs_data = []
+        for c in configs:
+            configs_data.append({
+                "key": c.key,
+                "value": c.value
+            })
+            
+        return {
+            "sources": sources_data,
+            "entities": entities_data,
+            "tags": tags_data,
+            "interest_topics": topics_data,
+            "agent_config": configs_data,
+            "version": "1.0",
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Export failed: {str(e)}")
+
+@app.post("/api/system/import")
+async def import_system(data: dict, db: Session = Depends(get_db)):
+    """Wipe config tables and restore from JSON. Preserve NewsItems."""
+    try:
+        # 1. Wipe Config Tables (Order matters due to FKs if any, though here it's mostly secondary tables)
+        db.execute(text("DELETE FROM news_tags")) # We wipe news-tag associations because Tag IDs will change
+        db.execute(text("DELETE FROM entity_sources"))
+        db.query(models.Source).delete()
+        db.query(models.Entity).delete()
+        db.query(models.Tag).delete()
+        db.query(models.InterestTopic).delete()
+        db.query(models.AgentConfig).delete()
+        db.commit()
+        
+        # 2. Restore Tags
+        tag_map = {} # old_id -> new_tag_obj
+        for t_data in data.get("tags", []):
+            old_id = t_data.get("id")
+            new_tag = models.Tag(
+                name=t_data["name"],
+                color=t_data.get("color", "blue"),
+                description=t_data.get("description")
+            )
+            db.add(new_tag)
+            db.flush()
+            tag_map[old_id] = new_tag
+            
+        # 3. Restore Sources
+        source_map = {} # old_id -> new_source_obj
+        for s_data in data.get("sources", []):
+            old_id = s_data.get("id")
+            new_source = models.Source(
+                name=s_data["name"],
+                type=s_data["type"],
+                subtype=s_data.get("subtype"),
+                config=s_data["config"],
+                icon=s_data.get("icon"),
+                health_status=s_data.get("health_status", "OK"),
+                active=s_data.get("active", True)
+            )
+            db.add(new_source)
+            db.flush()
+            source_map[old_id] = new_source
+            
+        # 4. Restore Entities
+        for e_data in data.get("entities", []):
+            new_entity = models.Entity(
+                name=e_data["name"],
+                type=e_data["type"],
+                description=e_data.get("description")
+            )
+            # Restore relationships to sources
+            if "source_ids" in e_data:
+                related_sources = []
+                for sid in e_data["source_ids"]:
+                    if sid in source_map:
+                        related_sources.append(source_map[sid])
+                new_entity.sources = related_sources
+            db.add(new_entity)
+            
+        # 5. Restore InterestTopics
+        for it_data in data.get("interest_topics", []):
+            new_topic = models.InterestTopic(
+                subject=it_data["subject"],
+                scope=it_data["scope"],
+                keywords=it_data.get("keywords", ""),
+                exclusions=it_data.get("exclusions", ""),
+                relevance_level=it_data.get("relevance_level", "Medium"),
+                context_tags=it_data.get("context_tags", "")
+            )
+            db.add(new_topic)
+            
+        # 6. Restore AgentConfig
+        for c_data in data.get("agent_config", []):
+            new_config = models.AgentConfig(
+                key=c_data["key"],
+                value=c_data["value"]
+            )
+            db.add(new_config)
+            
+        db.commit()
+        return {"ok": True, "message": "System configuration restored successfully"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Import failed: {str(e)}")

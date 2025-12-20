@@ -9,6 +9,7 @@ import Trash from './pages/Trash';
 import Topics from './pages/Topics';
 import Tags from './pages/Tags';
 import Entities from './pages/Entities';
+import Settings from './pages/Settings';
 import { ToastProvider } from './context/ToastContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { HighlightProvider } from './context/HighlightContext';
@@ -28,6 +29,7 @@ function App() {
                                 <Route path="sources" element={<Sources />} />
                                 <Route path="entities" element={<Entities />} />
                                 <Route path="ai-config" element={<AIConfig />} />
+                                <Route path="settings" element={<Settings />} />
                                 <Route path="trash" element={<Trash />} />
                                 <Route path="*" element={<Navigate to="/" replace />} />
                             </Route>
