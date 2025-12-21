@@ -9,3 +9,4 @@ google-genai
 groq
 python-dotenv
 langdetect
+spacy

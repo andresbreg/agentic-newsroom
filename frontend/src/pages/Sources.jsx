@@ -164,8 +164,8 @@ const Sources = () => {
         <div className="p-8 bg-gray-50 dark:bg-gray-900 min-h-screen transition-colors duration-300">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                 <div>
-                    <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
-                        <Rss className="w-8 h-8 text-indigo-500" />
+                    <h1 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                        <Rss className="w-6 h-6 text-indigo-600" />
                         Gestión de Fuentes
                     </h1>
                     <p className="text-gray-500 dark:text-gray-400 mt-1">
@@ -285,8 +285,8 @@ const Sources = () => {
                                                         setStep(2);
                                                     }}
                                                     className={`group p-4 text-left rounded-2xl border-2 transition-all flex items-center gap-4 relative ${!type.active
-                                                            ? 'opacity-40 grayscale cursor-not-allowed border-gray-100 dark:border-gray-700'
-                                                            : 'border-gray-100 dark:border-gray-700 hover:border-indigo-500 dark:hover:border-indigo-500 hover:shadow-lg bg-white dark:bg-gray-800'
+                                                        ? 'opacity-40 grayscale cursor-not-allowed border-gray-100 dark:border-gray-700'
+                                                        : 'border-gray-100 dark:border-gray-700 hover:border-indigo-500 dark:hover:border-indigo-500 hover:shadow-lg bg-white dark:bg-gray-800'
                                                         }`}
                                                 >
                                                     <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${type.bgColor}`}>

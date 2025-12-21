@@ -7,6 +7,7 @@ Saves to: title and content_snippet columns
 """
 
 import feedparser
+import requests
 from sqlalchemy.orm import Session
 from models import Source, NewsItem
 from datetime import datetime, timedelta, timezone
@@ -41,82 +42,83 @@ def process_feeds(db: Session) -> Tuple[int, List[int]]:
     cutoff_date = datetime.now(timezone.utc) - timedelta(days=1)
     print(f"[INGESTOR] Starting RSS scan. Freshness cutoff: {cutoff_date}")
     
+    HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"}
+    
     for source in sources:
+        url = source.config.get('url')
+        if not url: continue
+            
         try:
-            url = source.config.get('url')
-            if not url:
-                continue
-                
-            feed = feedparser.parse(url)
+            print(f"[INGESTOR] Fetching {source.name} ({url})...")
+            # Using requests for better timeout/header control than feedparser.parse(url)
+            response = requests.get(url, headers=HEADERS, timeout=20)
+            response.raise_for_status()
+            
+            feed = feedparser.parse(response.content)
+            print(f"[INGESTOR] Parsing {len(feed.entries)} entries from {source.name}")
             
             for entry in feed.entries:
-                link = entry.get('link')
-                if not link:
-                    continue
+                try:
+                    link = entry.get('link')
+                    if not link: continue
+                        
+                    # 1. Existence Check
+                    existing = db.query(NewsItem).filter(NewsItem.url == link).first()
+                    if existing: continue
                     
-                # Check if exists
-                existing = db.query(NewsItem).filter(NewsItem.url == link).first()
-                if existing:
+                    # 2. Freshness Check (24h)
+                    item_date = datetime.now(timezone.utc)
+                    if hasattr(entry, 'published_parsed') and entry.published_parsed:
+                        try:
+                            item_date = datetime(*entry.published_parsed[:6]).replace(tzinfo=timezone.utc)
+                        except: pass
+                    
+                    if item_date < cutoff_date:
+                        continue
+
+                    # 3. Content Extraction (Robust)
+                    title = entry.get('title', 'Sin título')
+                    content_raw = ""
+                    if hasattr(entry, 'content') and entry.content:
+                        content_raw = entry.content[0].value
+                    elif hasattr(entry, 'summary_detail') and entry.summary_detail:
+                        content_raw = entry.summary_detail.value
+                    elif hasattr(entry, 'summary'):
+                        content_raw = entry.summary
+                    else:
+                        content_raw = entry.get('description', '')
+                    
+                    content_snippet = clean_html(content_raw)
+                    
+                    # 4. Language detection (Quick sample)
+                    text_sample = f"{title} {content_snippet[:200]}".strip()
+                    detected_lang = "unknown"
+                    if text_sample:
+                        try: detected_lang = detect(text_sample)
+                        except: pass
+
+                    # 5. Create Item
+                    new_item = NewsItem(
+                        source_id=source.id,
+                        title=title,
+                        url=link,
+                        published_date=item_date.isoformat(),
+                        status="DISCOVERED",
+                        language=detected_lang,
+                        content_snippet=content_snippet
+                    )
+                    db.add(new_item)
+                    db.flush()
+                    new_item_ids.append(new_item.id)
+                    new_items_count += 1
+                    
+                except Exception as entry_e:
+                    print(f"  [INGESTOR] Error in entry: {entry_e}")
                     continue
-                
-                # Freshness Check
-                item_date = datetime.now(timezone.utc)
-                if hasattr(entry, 'published_parsed') and entry.published_parsed:
-                    item_date = datetime(*entry.published_parsed[:6]).replace(tzinfo=timezone.utc)
-                
-                if item_date < cutoff_date:
-                    print(f"[INGESTOR] Skipping old article: {entry.get('title', 'No Title')} ({item_date})")
-                    continue
 
-                # Parse date to ISO format
-                published_iso = item_date.isoformat()
-                
-                # Extract title
-                title = entry.get('title', 'Sin título')
-                
-                # Content Extraction Logic (cascade: content > summary > description)
-                content_raw = ""
-                if hasattr(entry, 'content') and entry.content:
-                    content_raw = entry.content[0].value
-                elif hasattr(entry, 'summary_detail') and entry.summary_detail:
-                    content_raw = entry.summary_detail.value
-                elif hasattr(entry, 'summary'):
-                    content_raw = entry.summary
-                else:
-                    content_raw = entry.get('description', '')
-                
-                content_snippet = clean_html(content_raw)
-                
-                if not content_snippet:
-                    print(f"[INGESTOR] No content found for: {title}")
-
-                # Detect language for future translation
-                text_sample = f"{title} {content_snippet}".strip()
-                detected_lang = "unknown"
-                if text_sample:
-                    try:
-                        detected_lang = detect(text_sample)
-                    except:
-                        detected_lang = "unknown"
-
-                # Create new item (no translation yet)
-                new_item = NewsItem(
-                    source_id=source.id,
-                    title=title,
-                    url=link,
-                    published_date=published_iso,
-                    status="DISCOVERED",
-                    language=detected_lang,
-                    content_snippet=content_snippet
-                )
-                db.add(new_item)
-                db.flush()  # Get ID
-                new_item_ids.append(new_item.id)
-                new_items_count += 1
-                
-        except Exception as e:
-            print(f"[INGESTOR] Error scanning source {source.name if hasattr(source, 'name') else 'unknown'}: {e}")
+        except Exception as source_e:
+            print(f"[INGESTOR] Failed to sync {source.name}: {source_e}")
             
     db.commit()
-    print(f"[INGESTOR] Processed {new_items_count} new items")
+    print(f"[INGESTOR] Sync complete. Created {new_items_count} items.")
     return new_items_count, new_item_ids

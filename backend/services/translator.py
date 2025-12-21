@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from models import NewsItem
 from langdetect import detect, LangDetectException
 from groq import Groq
+from . import extractor
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -208,6 +209,14 @@ def process_pending_translations(db: Session, item_ids: List[int] = None) -> int
                 item.content_es = item.content_snippet
         
         db.commit()
+        
+        # --- Automatic Entity Extraction ---
+        # The moment a batch is translated, we process its entities
+        batch_ids = [item.id for item in current_batch]
+        try:
+            extractor.process_pending_entities(db, item_ids=batch_ids)
+        except Exception as e:
+            logger.error(f"[AUTO-EXTRACTOR] Error in automated extraction: {e}")
         
         # 4. Partial Summary after each batch
         current_duration = time.time() - total_process_start

@@ -126,50 +126,59 @@ async def root():
 
 @app.post("/api/scan")
 def scan_sources(background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
-    # Step 1: Ingest RSS feeds (no translation)
+    # 1. Ingest RSS feeds (Synchronous)
+    # We process all feeds here to give immediate feedback on count
     count, new_ids = ingestor.process_feeds(db)
     
+    # 2. Trigger Parallel flows in background (Heavy lifting)
+    background_tasks.add_task(auto_extract_native_background)
+
     if new_ids:
-        # Trigger full processing pipeline in background
-        background_tasks.add_task(run_full_pipeline, new_ids)
+        background_tasks.add_task(auto_translate_background, new_ids)
     
     return {"new_items": count, "new_item_ids": new_ids}
 
-def run_full_pipeline(new_item_ids: List[int]):
-    """
-    Orchestrates the full processing pipeline:
-    1. Translate new items
-    2. Extract entities from translated items
-    """
-    print(f"[PIPELINE] Starting processing for {len(new_item_ids)} new items")
-    
-    # Run Translation
-    auto_translate_background(new_item_ids)
-    
-    # Run Extraction (will pick up the just-translated items)
-    auto_extract_entities_background()
-    
-    print("[PIPELINE] Processing complete")
+def clean_old_invalid_entities(db: Session):
+    """Temporary helper to wipe entities that start with STOP_PREFIXES after filter update."""
+    from services.extractor import STOP_PREFIXES
+    from models import Entity
+    for prefix in STOP_PREFIXES:
+        db.query(Entity).filter(Entity.name.like(f"{prefix}%")).delete(synchronize_session=False)
+    db.commit()
 
 def auto_translate_background(new_item_ids: List[int]):
-    """Helper to translate items."""
+    """Helper to translate items. Extraction is handled internally by translator per batch."""
     db = SessionLocal()
     try:
+        print(f"[Background] Starting translation flow for {len(new_item_ids)} items")
         count = translator.process_pending_translations(db, new_item_ids)
-        print(f"[Background] Translated {count} items to Spanish")
+        print(f"[Background] Flow A: Translated {count} items")
     except Exception as e:
-        print(f"[Background] Error during translation: {e}")
+        print(f"[Background] Error during translation flow: {e}")
     finally:
         db.close()
 
 def auto_extract_entities_background():
-    """Helper to extract entities."""
+    """Helper to extract entities from translated items (if any left)."""
     db = SessionLocal()
     try:
         count = extractor.process_pending_entities(db)
-        print(f"[Background] Extracted entities from {count} items")
+        if count > 0:
+            print(f"[Background] Extracted entities from {count} translated items")
     except Exception as e:
-        print(f"[Background] Error during entity extraction: {e}")
+        print(f"[Background] Error during batch entity extraction: {e}")
+    finally:
+        db.close()
+
+def auto_extract_native_background():
+    """Helper to extract entities from native Spanish items."""
+    db = SessionLocal()
+    try:
+        count = extractor.process_native_pending(db)
+        if count > 0:
+            print(f"[Background] Extracted entities from {count} native ES items")
+    except Exception as e:
+        print(f"[Background] Error during native entity extraction: {e}")
     finally:
         db.close()
 
@@ -488,6 +497,7 @@ def export_system(db: Session = Depends(get_db)):
                 "name": e.name,
                 "type": e.type,
                 "description": e.description,
+                "is_ignored": e.is_ignored,
                 "source_ids": [s.id for s in e.sources]
             })
             
@@ -540,6 +550,7 @@ async def import_system(data: dict, db: Session = Depends(get_db)):
     try:
         # 1. Wipe Config Tables (Order matters due to FKs if any, though here it's mostly secondary tables)
         db.execute(text("DELETE FROM news_tags")) # We wipe news-tag associations because Tag IDs will change
+        db.execute(text("DELETE FROM news_entities")) # We wipe news-entity associations
         db.execute(text("DELETE FROM entity_sources"))
         db.query(models.Source).delete()
         db.query(models.Entity).delete()
@@ -583,7 +594,8 @@ async def import_system(data: dict, db: Session = Depends(get_db)):
             new_entity = models.Entity(
                 name=e_data["name"],
                 type=e_data["type"],
-                description=e_data.get("description")
+                description=e_data.get("description"),
+                is_ignored=e_data.get("is_ignored", False)
             )
             # Restore relationships to sources
             if "source_ids" in e_data:

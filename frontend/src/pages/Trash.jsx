@@ -172,7 +172,7 @@ const Trash = () => {
         <div className="p-8 bg-gray-50 dark:bg-gray-900 min-h-full transition-colors duration-300">
             <div className="flex justify-between items-center mb-6">
                 <div className="flex items-center gap-2">
-                    <Trash2 className="w-6 h-6 text-slate-900 dark:text-white" />
+                    <Trash2 className="w-6 h-6 text-indigo-600" />
                     <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Papelera</h1>
                 </div>
                 <div className="flex gap-2">

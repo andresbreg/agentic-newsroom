@@ -1,147 +1,154 @@
 """
-Extractor Service - Named Entity Recognition (NER)
+Extractor Service - Named Entity Recognition (NER) with SpaCy
 
-Handles entity extraction from Spanish-translated news items using Groq.
-Processes items where title_es IS NOT NULL AND entities_extracted = FALSE.
+Handles local entity extraction from news items using SpaCy.
+Processes both translated news and native Spanish news.
 """
 
-import os
-import json
+import spacy
+import logging
+import re
 from sqlalchemy.orm import Session
 from models import NewsItem, Entity
-from groq import Groq
 from typing import List
-import logging
 
+# Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Load SpaCy model globally
+try:
+    logger.info("[EXTRACTOR] Cargando modelo SpaCy 'es_core_news_lg'...")
+    nlp = spacy.load("es_core_news_lg")
+    logger.info("[EXTRACTOR] Modelo cargado exitosamente")
+except Exception as e:
+    logger.error(f"[EXTRACTOR] Error al cargar el modelo SpaCy: {e}")
+    nlp = None
 
-def process_pending_entities(db: Session) -> int:
+# Mapping SpaCy labels to DB Enums
+# We only care about PER, ORG, LOC, GPE
+SPACY_TO_DB_MAP = {
+    "PER": "PERSON",
+    "ORG": "ORGANIZATION",
+    "GPE": "LOCATION",
+    "LOC": "LOCATION"
+}
+
+STOP_PREFIXES = ("El ", "La ", "Los ", "Las ", "Un ", "Una ", "En ", "De ", "Para ", "Por ", "Con ", "Sobre ", "Según ")
+
+def is_valid_entity(text: str, label: str) -> bool:
     """
-    Extract named entities from translated news items using Groq.
-    
-    Only processes items that:
-    - Have been translated (title_es IS NOT NULL)
-    - Haven't been processed yet (entities_extracted = FALSE)
-    
-    Returns:
-        int: Number of items processed
+    Apply heuristic filters to avoid 'garbage' entities.
     """
-    # Select items ready for entity extraction
-    pending_items = db.query(NewsItem).filter(
-        NewsItem.title_es != None,
-        NewsItem.entities_extracted == False
-    ).limit(5).all()  # Process in batches of 5
-    
-    if not pending_items:
-        logger.info("[EXTRACTOR] No pending items for entity extraction")
-        return 0
-    
-    logger.info(f"[EXTRACTOR] Found {len(pending_items)} items ready for entity extraction")
-    
-    # Initialize Groq client
-    api_key = os.getenv("GROQ_API_KEY") or os.getenv("API_KEY")
-    model = os.getenv("MODEL", "llama-3.1-8b-instant")
-    
-    if not api_key:
-        logger.error("[EXTRACTOR] GROQ_API_KEY not found in environment")
-        return 0
-    
-    client = Groq(api_key=api_key)
-    processed_count = 0
-    
-    for item in pending_items:
-        try:
-            # Prepare text for NER (use Spanish version)
-            text = f"{item.title_es}. {item.content_es or ''}".strip()
+    if label not in SPACY_TO_DB_MAP:
+        return False
+        
+    # 1. Stopwords/Articles at the start (Case Insensitive)
+    text_lower = text.lower()
+    if any(text_lower.startswith(p.lower()) for p in STOP_PREFIXES):
+        return False
+        
+    # 2. Length check (2 to 50 chars)
+    if not (2 <= len(text) <= 50):
+        return False
+        
+    # 3. Excessive Punctuation or Special Chars
+    if "\n" in text or "\t" in text:
+        return False
+        
+    if re.search(r'[.]{2,}|["]{2,}', text): # Excessive dots or quotes
+        return False
+        
+    # 4. Must not be just a number or special symbols
+    if text.replace(" ", "").isdigit():
+        return False
+        
+    return True
+
+def _extract_from_item(db: Session, item: NewsItem):
+    """Internal helper to process a single NewsItem."""
+    try:
+        # Use Spanish content if available (translated), else fallback to original (native ES)
+        title = item.title_es or item.title
+        content = item.content_es or item.content_snippet or ""
+        text = f"{title}. {content}".strip()
+        
+        doc = nlp(text)
+        seen_entities = set()
+        entities_added = 0
+        
+        for ent in doc.ents:
+            ent_name = ent.text.strip()
+            ent_label = ent.label_
             
-            prompt = f"""Analiza el siguiente texto en español y extrae las entidades nombradas más relevantes.
-
-Categorías:
-- PERSONA: Nombres de personas
-- ORGANIZACION: Empresas, instituciones, organizaciones
-- LUGAR: Países, ciudades, ubicaciones geográficas
-- CONCEPTO: Conceptos importantes, eventos, tecnologías
-
-Texto: {text}
-
-Devuelve SOLO un objeto JSON con este formato exacto:
-{{
-  "entities": [
-    {{"name": "nombre de la entidad", "type": "PERSONA|ORGANIZACION|LUGAR|CONCEPTO"}}
-  ]
-}}"""
-
-            try:
-                response = client.chat.completions.create(
-                    messages=[
-                        {
-                            "role": "system",
-                            "content": "Eres un sistema especializado en extracción de entidades nombradas. Devuelve SOLO JSON válido."
-                        },
-                        {
-                            "role": "user",
-                            "content": prompt
-                        }
-                    ],
-                    model=model,
-                    response_format={"type": "json_object"},
-                    temperature=0.3
-                )
+            if not is_valid_entity(ent_name, ent_label):
+                continue
                 
-                result_text = response.choices[0].message.content
-                result = json.loads(result_text)
-                
-                extracted_entities = result.get("entities", [])
-                entities_linked = 0
-                
-                for ent_data in extracted_entities:
-                    name = ent_data.get("name")
-                    ent_type = ent_data.get("type", "CONCEPTO").upper()
-                    
-                    if not name:
-                        continue
-                    
-                    # Find or create entity (case-insensitive)
-                    entity = db.query(Entity).filter(
-                        Entity.name.ilike(name)
-                    ).first()
-                    
-                    # Check if entity is ignored
-                    if entity and entity.is_ignored:
-                        logger.info(f"[EXTRACTOR] Skipping ignored entity: {name}")
-                        continue
-                    
-                    if not entity:
-                        entity = Entity(
-                            name=name,
-                            type=ent_type
-                        )
-                        db.add(entity)
-                        db.flush()
-                    
-                    # Link to news item if not already linked
-                    if entity not in item.entities:
-                        item.entities.append(entity)
-                        entities_linked += 1
-                
-                logger.info(f"[EXTRACTOR] Item {item.id}: Linked {entities_linked} entities")
-                
-            except json.JSONDecodeError as e:
-                logger.error(f"[EXTRACTOR] JSON parsing error for item {item.id}: {e}")
-            except Exception as e:
-                logger.error(f"[EXTRACTOR] Groq NER failed for item {item.id}: {e}")
+            # Deduplication
+            if ent_name.lower() in seen_entities:
+                continue
+            seen_entities.add(ent_name.lower())
             
-            # Mark as processed regardless of success/failure
-            item.entities_extracted = True
-            processed_count += 1
+            db_type = SPACY_TO_DB_MAP[ent_label]
             
-        except Exception as e:
-            logger.error(f"[EXTRACTOR] Error processing item {item.id}: {e}")
-            # Still mark as processed to avoid infinite retry
-            item.entities_extracted = True
+            # Check existing
+            existing_entity = db.query(Entity).filter(Entity.name.ilike(ent_name)).first()
+            
+            if existing_entity and existing_entity.is_ignored:
+                continue
+                
+            if not existing_entity:
+                existing_entity = Entity(name=ent_name, type=db_type)
+                db.add(existing_entity)
+                db.flush()
+                
+            if existing_entity not in item.entities:
+                item.entities.append(existing_entity)
+                entities_added += 1
+                
+        item.entities_extracted = True
+        logger.info(f"  > Item {item.id}: {entities_added} entidades vinculadas ({item.language})")
+        return True
+    except Exception as e:
+        logger.error(f"[EXTRACTOR] Error in item {item.id}: {e}")
+        item.entities_extracted = True # Mark to avoid retrying indefinitely
+        return False
+
+def process_pending_entities(db: Session, item_ids: List[int] = None) -> int:
+    """Processes translated items (Flow A)."""
+    if nlp is None: return 0
     
+    query = db.query(NewsItem).filter(NewsItem.entities_extracted == False)
+    if item_ids:
+        query = query.filter(NewsItem.id.in_(item_ids))
+    else:
+        query = query.filter(NewsItem.title_es != None).limit(10)
+        
+    items = query.all()
+    count = 0
+    for item in items:
+        if _extract_from_item(db, item):
+            count += 1
     db.commit()
-    logger.info(f"[EXTRACTOR] Completed processing {processed_count} items")
-    return processed_count
+    return count
+
+def process_native_pending(db: Session) -> int:
+    """Processes native Spanish items (Flow B)."""
+    if nlp is None: return 0
+    
+    # Query items that are ES and have not been processed.
+    items = db.query(NewsItem).filter(
+        NewsItem.language == "es",
+        NewsItem.entities_extracted == False
+    ).limit(100).all()
+    
+    if not items:
+        return 0
+        
+    logger.info(f"[EXTRACTOR] Procesando {len(items)} noticias NATIVAS ES con SpaCy...")
+    count = 0
+    for item in items:
+        if _extract_from_item(db, item):
+            count += 1
+    db.commit()
+    return count

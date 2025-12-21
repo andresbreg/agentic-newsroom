@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useToast } from '../context/ToastContext';
-import { Filter, CheckSquare, Square, Trash2, CheckCircle, RefreshCw, LayoutDashboard, ExternalLink, Sparkles, FileText, Fingerprint, Loader2 } from 'lucide-react';
+import { Filter, CheckSquare, Square, Trash2, CheckCircle, RefreshCw, LayoutDashboard, ExternalLink, Sparkles, FileText, Loader2 } from 'lucide-react';
 import { useHighlight } from '../context/HighlightContext';
 import Reader from '../components/Reader';
 import { cn } from '../lib/utils';
@@ -15,7 +15,6 @@ const News = () => {
     const [newsItems, setNewsItems] = useState([]);
     const [loading, setLoading] = useState(true);
     const [scanning, setScanning] = useState(false);
-    const [extracting, setExtracting] = useState(false);
 
     // New State
     const [selectedItems, setSelectedItems] = useState(new Set());
@@ -85,23 +84,6 @@ const News = () => {
     };
 
 
-    const handleExtractEntities = async () => {
-        setExtracting(true);
-        try {
-            const response = await fetch('http://localhost:8000/api/extract-entities', { method: 'POST' });
-            if (response.ok) {
-                const data = await response.json();
-                addToast(`Extracción completada. ${data.extracted_count} entidades vinculadas.`, 'success');
-                await fetchNews();
-            } else {
-                addToast('Error al extraer entidades.', 'error');
-            }
-        } catch (error) {
-            addToast('Error de conexión.', 'error');
-        } finally {
-            setExtracting(false);
-        }
-    };
 
     const updateStatus = async (id, status) => {
         // Optimistic update
@@ -217,18 +199,10 @@ const News = () => {
         <div className="p-8 bg-gray-50 dark:bg-gray-900 min-h-full transition-colors duration-300">
             <div className="flex justify-between items-center mb-6">
                 <div className="flex items-center gap-2">
-                    <LayoutDashboard className="w-6 h-6 text-slate-900 dark:text-white" />
+                    <LayoutDashboard className="w-6 h-6 text-indigo-600" />
                     <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Panel de Noticias</h1>
                 </div>
                 <div className="flex gap-2">
-                    <button
-                        onClick={handleExtractEntities}
-                        disabled={extracting}
-                        className={`px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors flex items-center gap-2 ${extracting ? 'opacity-75 cursor-not-allowed' : ''}`}
-                    >
-                        <Fingerprint size={20} className={extracting ? 'animate-pulse' : ''} />
-                        {extracting ? 'Identificando...' : 'Identificar Entidades'}
-                    </button>
                     <button
                         onClick={handleScan}
                         disabled={scanning}

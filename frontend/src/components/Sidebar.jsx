@@ -102,8 +102,13 @@ const Sidebar = ({ collapsed, setCollapsed }) => {
 
             {/* Footer */}
             <div className="p-2 border-t border-gray-100 dark:border-gray-800 space-y-3 pb-4">
-                {/* Utilities Row: Theme, Trash, Settings (Icons only, centered) */}
-                <div className="flex items-center justify-center gap-4 py-2">
+                {/* Utilities Row: Theme, Trash, Settings */}
+                <div className={cn(
+                    "flex items-center py-2",
+                    collapsed
+                        ? "flex-col gap-3"
+                        : "flex-row justify-center gap-4"
+                )}>
                     <button
                         onClick={toggleTheme}
                         className="text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 transition-colors"

@@ -123,8 +123,8 @@ const Entities = () => {
         <div className="p-8 bg-gray-50 dark:bg-gray-900 min-h-screen transition-colors duration-300">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                 <div>
-                    <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
-                        <Database className="w-8 h-8 text-indigo-500" />
+                    <h1 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                        <Database className="w-6 h-6 text-indigo-600" />
                         Gestión de Entidades
                     </h1>
                     <p className="text-gray-500 dark:text-gray-400 mt-1">
@@ -200,8 +200,8 @@ const Entities = () => {
                                         <button
                                             onClick={() => handleToggleIgnore(entity.id)}
                                             className={`p-1.5 rounded-lg transition-colors ${entity.is_ignored
-                                                    ? 'text-gray-400 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30'
-                                                    : 'text-gray-400 hover:text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900/30'
+                                                ? 'text-gray-400 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30'
+                                                : 'text-gray-400 hover:text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900/30'
                                                 }`}
                                             title={entity.is_ignored ? 'Activar' : 'Ignorar'}
                                         >

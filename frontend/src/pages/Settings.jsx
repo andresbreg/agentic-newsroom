@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Settings as SettingsIcon, Download, Upload, AlertTriangle, CheckCircle, RefreshCw } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
 
 const Settings = () => {
     const { addToast } = useToast();
+    const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
 
     const handleExport = async () => {
@@ -54,19 +56,22 @@ const Settings = () => {
                     });
 
                     if (response.ok) {
-                        addToast('Configuración restaurada correctamente. Recargando...', 'success');
-                        setTimeout(() => window.location.reload(), 2000);
+                        addToast('Configuración restaurada correctamente', 'success');
+                        // Navigate to dashboard instead of full reload
+                        setTimeout(() => navigate('/'), 1000);
                     } else {
                         throw new Error('Import failed');
                     }
                 } catch (err) {
                     addToast('Error al procesar el archivo de respaldo', 'error');
+                } finally {
+                    setLoading(false);
+                    event.target.value = '';
                 }
             };
             reader.readAsText(file);
         } catch (error) {
             addToast('Error en la restauración', 'error');
-        } finally {
             setLoading(false);
             event.target.value = '';
         }
@@ -74,9 +79,9 @@ const Settings = () => {
 
     return (
         <div className="p-8 bg-gray-50 dark:bg-gray-900 min-h-full transition-colors duration-300">
-            <div className="flex items-center gap-3 mb-8">
-                <SettingsIcon className="w-8 h-8 text-slate-900 dark:text-white" />
-                <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Ajustes del Sistema</h1>
+            <div className="flex items-center gap-2 mb-8">
+                <SettingsIcon className="w-6 h-6 text-indigo-600" />
+                <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Ajustes del Sistema</h1>
             </div>
 
             <div className="max-w-4xl">

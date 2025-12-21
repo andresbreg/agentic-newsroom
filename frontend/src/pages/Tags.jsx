@@ -108,7 +108,7 @@ const Tags = () => {
     return (
         <div className="p-8 bg-gray-50 dark:bg-gray-900 min-h-full transition-colors duration-300">
             <div className="flex items-center gap-2 mb-6">
-                <Tag className="w-6 h-6 text-slate-900 dark:text-white" />
+                <Tag className="w-6 h-6 text-indigo-600" />
                 <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Gestión de Etiquetas</h1>
             </div>
 
