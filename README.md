@@ -1,67 +1,99 @@
-# Agentic Newsroom Shell
+# Agentic Newsroom
 
-This is the shell structure for the Agentic Newsroom application, featuring a React frontend and a FastAPI backend.
+Una plataforma inteligente de monitoreo y análisis de noticias que utiliza agentes de IA para automatizar el flujo de trabajo de una agencia de noticias.
 
-## Prerequisites
+## 🚀 Características Principales
 
-- Node.js (v18+)
-- Python (v3.8+)
+- **Ingesta Automatizada**: Procesamiento robusto de feeds RSS con limpieza de HTML y filtros de relevancia temporal (últimas 24h).
+- **Procesamiento Inteligente (Pipelines de IA)**:
+  - **Detección de Idiomas**: Identificación automática del idioma original de las noticias.
+  - **Traducción Automática**: Traducción de noticias de múltiples idiomas al español utilizando modelos de lenguaje (Groq/LLMs).
+  - **Extracción de Entidades**: Identificación automatizada de Personas, Organizaciones, Ubicaciones y Conceptos Clave utilizando NLP.
+- **Gestión de Contenidos**:
+  - **Dashboard de Monitoreo**: Visualización en tiempo real del estado del sistema y estadísticas.
+  - **Temas de Interés**: Configuración de alcances, palabras clave y exclusiones para filtrar noticias relevantes.
+  - **Sistema de Etiquetas y Entidades**: Organización taxonómica y asociación de noticias.
+  - **Gestión de Ciclo de Vida**: Flujo de aprobación/rechazo y papelera de reciclaje.
+- **Administración del Sistema**:
+  - **Configuración de IA**: Ajuste de parámetros de los agentes y modelos utilizados.
+  - **Backup & Restore**: Exportación e importación completa de la configuración del sistema (fuentes, temas, etiquetas, entidades).
 
-## Project Structure
+## 🛠️ Stack Tecnológico
+
+### Backend
+- **Framework**: FastAPI (Python)
+- **Base de Datos**: SQLite con SQLAlchemy ORM
+- **IA/ML**:
+  - Groq & Google Gemini (LLMs para traducción y extracción)
+  - Langdetect (Detección de idioma)
+  - BeautifulSoup4 (Web scraping)
+  - Feedparser (Ingesta RSS)
+
+### Frontend
+- **Framework**: React.js con Vite
+- **Estilos**: Tailwind CSS
+- **Iconos**: Lucide React
+- **Estado/Rutas**: React Router, Context API
+
+## 📋 Estructura del Proyecto
 
 ```
 agentic-newsroom/
-├── backend/            # FastAPI Backend
-│   ├── main.py
-│   └── requirements.txt
-└── frontend/           # React + Vite Frontend
+├── backend/            # API FastAPI y Servicios de Agentes
+│   ├── main.py         # Punto de entrada y Endpoints
+│   ├── models.py       # Modelos de Base de Datos
+│   ├── services/       # Lógica de Ingesta, Traducción y Extracción
+│   └── database.py     # Configuración de SQLAlchemy
+└── frontend/           # Aplicación React + Vite
     ├── src/
-    ├── package.json
+    │   ├── pages/      # Vistas (News, Sources, Entities, etc.)
+    │   ├── components/ # Componentes Reutilizables
+    │   └── context/    # Gestión de Estado Global
     └── ...
 ```
 
-## Installation & Running
+## ⚙️ Instalación y Ejecución
 
-### Backend
+### Requisitos Previos
 
-1. Navigate to the `backend` directory (or root):
+- Node.js (v18+)
+- Python (v3.8+)
+- API Key de Groq/Gemini (configurada en `backend/.env`)
+
+### Preparación del Backend
+
+1. Navegar al directorio `backend`:
    ```bash
    cd backend
    ```
-2. Create a virtual environment (optional but recommended):
+2. Crear y activar un entorno virtual:
    ```bash
    python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   source venv/bin/activate  # En Windows: venv\Scripts\activate
    ```
-3. Install dependencies:
+3. Instalar dependencias:
    ```bash
    pip install -r requirements.txt
    ```
-4. Run the server:
+4. Configurar variables de entorno:
+   - Crear un archivo `.env` basado en las necesidades del sistema (debe incluir `GROQ_API_KEY`).
+5. Iniciar el servidor:
    ```bash
    uvicorn main:app --reload --port 8000
    ```
-   The API will be available at `http://localhost:8000`.
-   Check status at `http://localhost:8000/api/status`.
 
-### Frontend
+### Preparación del Frontend
 
-1. Navigate to the `frontend` directory:
+1. Navegar al directorio `frontend`:
    ```bash
    cd frontend
    ```
-2. Install dependencies:
+2. Instalar dependencias:
    ```bash
    npm install
    ```
-3. Start the development server:
+3. Iniciar el servidor de desarrollo:
    ```bash
    npm run dev
    ```
-   The application will be available at `http://localhost:5173`.
-
-## Features
-
-- **Collapsible Sidebar**: Navigation with Dashboard and Settings.
-- **Status Bar**: Real-time backend connection status and system toggle.
-- **Modern UI**: Built with Tailwind CSS and Lucide Icons.
+   La aplicación estará disponible en `http://localhost:5173`.
