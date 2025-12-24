@@ -10,3 +10,8 @@ groq
 python-dotenv
 langdetect
 spacy
+grpcio==1.67.1
+grpcio-status==1.67.1
+protobuf<6.0.0
+crawl4ai
+playwright

@@ -50,18 +50,14 @@ run_migrations()
 
 app = FastAPI()
 
-# Configure CORS
-origins = [
-    "http://localhost:5173",  # Vite default port
-    "http://127.0.0.1:5173",
-]
-
+# Configure CORS - Allow all origins for development
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["*"],  # Allow all origins in development
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 # Dependency

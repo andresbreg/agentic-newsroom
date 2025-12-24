@@ -23,7 +23,6 @@ class SourceResponse(SourceBase):
 class EntityBase(BaseModel):
     name: str
     type: str
-    description: Optional[str] = None
 
 class EntityCreate(EntityBase):
     source_ids: List[int] = []

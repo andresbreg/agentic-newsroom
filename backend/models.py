@@ -48,7 +48,6 @@ class Entity(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, index=True, nullable=False)
     type = Column(String)  # PERSON, ORGANIZATION, LOCATION, CONCEPT
-    description = Column(String, nullable=True)
     is_ignored = Column(Boolean, default=False)
 
     sources = relationship("Source", secondary=entity_sources, back_populates="entities")
@@ -66,6 +65,7 @@ class NewsItem(Base):
     status = Column(String, default="DISCOVERED")  # DISCOVERED, APPROVED, REJECTED
     language = Column(String, nullable=True)
     content_snippet = Column(String, nullable=True)
+    full_content = Column(Text, nullable=True)
     
     # Spanish translations
     title_es = Column(String, nullable=True)
